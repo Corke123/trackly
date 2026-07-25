@@ -1,0 +1,31 @@
+spring:
+  application:
+    name: board-service
+  datasource:
+    url: ${BOARD_DB_URL:jdbc:postgresql://localhost:5432/board_db}
+    username: ${BOARD_DB_USERNAME:trackly}
+    password: ${BOARD_DB_PASSWORD:trackly}
+  flyway:
+    enabled: true
+
+
+trackly:
+  servicebus:
+    connection-string: ${SERVICEBUS_CONNECTION_STRING:}
+    topic: ${SERVICEBUS_TOPIC:board-events}
+  outbox:
+    relay-delay-ms: ${OUTBOX_RELAY_DELAY_MS:2000}
+server:
+  port: ${SERVER_PORT:8081}
+management:
+  endpoints:
+    web:
+      exposure:
+        include:
+          - health
+          - info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
