@@ -1,0 +1,120 @@
+name: Build container image
+description: >
+  Builds a service image with buildx and the GitHub Actions layer cache, stamps OCI provenance
+  labels and Spring Boot build information into it, and scans it with Trivy. `push` defaults to
+  false so CI only verifies the artefact; CD flips it to true and supplies a registry.
+
+inputs:
+  service:
+    description: Service directory, used as the build context.
+    required: true
+  image-name:
+    description: Image repository, without a registry prefix.
+    required: true
+  version:
+    description: Maven project version being built.
+    required: true
+  git-sha:
+    description: Commit the image is built from.
+    required: true
+  build-number:
+    description: Monotonic pipeline run number, recorded in the image as build.buildNumber.
+    required: false
+    default: '0'
+  build-url:
+    description: Link back to the pipeline run that produced the image, recorded as build.buildUrl.
+    required: false
+    default: local
+  registry:
+    description: Registry host, e.g. myacr.azurecr.io. Empty for a local-only build.
+    required: false
+    default: ''
+  push:
+    description: '"true" to push. Requires `registry` and a prior registry login.'
+    required: false
+    default: 'false'
+  scan-severity:
+    description: Comma-separated Trivy severities to report, e.g. MEDIUM,HIGH,CRITICAL.
+    required: false
+    default: 'HIGH,CRITICAL'
+  scan-exit-code:
+    description: '1 to fail the build on findings, 0 to report only.'
+    required: false
+    default: '0'
+
+outputs:
+  image-tag:
+    description: Primary immutable (commit-addressed) tag of the built image.
+    value: ${{ steps.tag.outputs.image-tag }}
+  digest:
+    description: Image digest, when the image was pushed.
+    value: ${{ steps.build.outputs.digest }}
+
+runs:
+  using: composite
+  steps:
+    - uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
+    - id: meta
+      uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+      with:
+        images: ${{ inputs.registry && format('{0}/{1}', inputs.registry, inputs.image-name) || inputs.image-name }}
+        tags: |
+          type=sha,format=long,prefix=sha-
+          type=ref,event=branch
+          type=ref,event=pr
+        labels: |
+          org.opencontainers.image.version=${{ inputs.version }}
+          org.opencontainers.image.revision=${{ inputs.git-sha }}
+
+    - id: tag
+      shell: bash
+      env:
+        TAGS: ${{ steps.meta.outputs.tags }}
+      run: |
+        set -euo pipefail
+        primary=$(printf '%s\n' "$TAGS" | grep -m1 ':sha-')
+        echo "image-tag=$primary" >> "$GITHUB_OUTPUT"
+
+    - id: build
+      uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+      with:
+        context: ${{ inputs.service }}
+        file: ${{ inputs.service }}/Dockerfile
+        push: ${{ inputs.push == 'true' }}
+        load: ${{ inputs.push != 'true' }}
+        platforms: linux/amd64
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        build-args: |
+          GIT_SHA=${{ inputs.git-sha }}
+          BUILD_NUMBER=${{ inputs.build-number }}
+          BUILD_URL=${{ inputs.build-url }}
+        cache-from: type=gha,scope=${{ inputs.service }}
+        cache-to: type=gha,mode=max,scope=${{ inputs.service }}
+        provenance: false
+
+    - name: Scan the image with Trivy
+      uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+      with:
+        image-ref: ${{ steps.tag.outputs.image-tag }}
+        scan-type: image
+        format: table
+        severity: ${{ inputs.scan-severity }}
+        ignore-unfixed: true
+        exit-code: ${{ inputs.scan-exit-code }}
+        output: trivy-image.txt
+
+    - name: Add the scan result to the job summary
+      if: always()
+      shell: bash
+      run: |
+        {
+          echo "<details><summary>Trivy image scan (${{ inputs.scan-severity }})</summary>"
+          echo
+          echo '```'
+          cat trivy-image.txt 2>/dev/null || echo "no scan output"
+          echo '```'
+          echo
+          echo "</details>"
+        } >> "$GITHUB_STEP_SUMMARY"

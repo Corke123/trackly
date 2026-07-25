@@ -1,0 +1,58 @@
+name: trackly
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: trackly
+      POSTGRES_PASSWORD: trackly
+      POSTGRES_DB: trackly
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./local/postgres-init.sql:/docker-entrypoint-initdb.d/10-init.sql:ro
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U trackly" ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  sqledge:
+    image: mcr.microsoft.com/azure-sql-edge:latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD:-Str0ng!Passw0rd}"
+
+  servicebus-emulator:
+    image: mcr.microsoft.com/azure-messaging/servicebus-emulator:latest
+    depends_on:
+      - sqledge
+    ports:
+      - "5672:5672"
+    environment:
+      SQL_SERVER: sqledge
+      MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD:-Str0ng!Passw0rd}"
+      ACCEPT_EULA: "Y"
+    volumes:
+      - ./local/servicebus-config.json:/ServiceBus_Emulator/ConfigFiles/Config.json:ro
+
+  board-service:
+    build: ./board-service
+    image: trackly/board-service:${TRACKLY_TAG:-local}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      servicebus-emulator:
+        condition: service_started
+    ports:
+      - "8081:8081"
+    environment:
+      BOARD_DB_URL: jdbc:postgresql://postgres:5432/board_db
+      BOARD_DB_USERNAME: trackly
+      BOARD_DB_PASSWORD: trackly
+      TRACKLY_ISSUER_URI: http://host.docker.internal:9000
+      SERVICEBUS_CONNECTION_STRING: "Endpoint=sb://servicebus-emulator;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=SAS_KEY_VALUE;UseDevelopmentEmulator=true;"
+      SERVICEBUS_TOPIC: board-events
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+

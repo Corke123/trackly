@@ -1,0 +1,105 @@
+name: Maven test and coverage summary
+description: >
+  Renders Surefire/Failsafe results and a JaCoCo CSV report into the run's job summary, so the
+  state of the build is visible without downloading anything. Uses only python3, which is
+  preinstalled on GitHub-hosted runners.
+
+inputs:
+  service:
+    description: Service directory the reports belong to.
+    required: true
+  stage:
+    description: Heading for this section of the summary.
+    required: true
+  test-reports:
+    description: Report directory relative to the service, containing TEST-*.xml.
+    required: false
+    default: target/surefire-reports
+  jacoco-csv:
+    description: JaCoCo CSV report relative to the service. Leave empty to skip coverage.
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Render summary
+      shell: bash
+      working-directory: ${{ inputs.service }}
+      env:
+        STAGE: ${{ inputs.stage }}
+        REPORT_DIR: ${{ inputs.test-reports }}
+        JACOCO_CSV: ${{ inputs.jacoco-csv }}
+      run: |
+        set -uo pipefail
+        python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+        import csv, glob, os, xml.etree.ElementTree as ET
+
+        stage = os.environ["STAGE"]
+        report_dir = os.environ.get("REPORT_DIR", "")
+        csv_path = os.environ.get("JACOCO_CSV", "")
+
+        print(f"## {stage}\n")
+
+        totals = dict(tests=0, failures=0, errors=0, skipped=0)
+        elapsed = 0.0
+        classes, broken = [], []
+        for path in sorted(glob.glob(os.path.join(report_dir, "TEST-*.xml"))):
+            try:
+                root = ET.parse(path).getroot()
+            except ET.ParseError:
+                continue
+            counts = {k: int(root.get(k) or 0) for k in totals}
+            seconds = float(root.get("time") or 0)
+            for key, value in counts.items():
+                totals[key] += value
+            elapsed += seconds
+            classes.append((root.get("name") or os.path.basename(path), counts, seconds))
+            for case in root.iter("testcase"):
+                for bad in list(case.findall("failure")) + list(case.findall("error")):
+                    message = (bad.get("message") or bad.get("type") or "").strip()
+                    broken.append((f"{case.get('classname')}.{case.get('name')}", message[:300]))
+
+        if not classes:
+            print(f"No test reports found in `{report_dir}`.\n")
+        else:
+            failed = totals["failures"] + totals["errors"]
+            print("| Result | Tests | Failures | Errors | Skipped | Time |")
+            print("|---|---:|---:|---:|---:|---:|")
+            print(f"| {'FAILED' if failed else 'PASSED'} | {totals['tests']} | "
+                  f"{totals['failures']} | {totals['errors']} | {totals['skipped']} | "
+                  f"{elapsed:.1f}s |\n")
+
+            if broken:
+                print("### Failing tests\n")
+                for name, message in broken:
+                    print(f"- `{name}` — {message}")
+                print()
+
+            print("<details><summary>Per-class results</summary>\n")
+            print("| Class | Tests | Failures | Errors | Skipped | Time |")
+            print("|---|---:|---:|---:|---:|---:|")
+            for name, counts, seconds in classes:
+                print(f"| `{name}` | {counts['tests']} | {counts['failures']} | "
+                      f"{counts['errors']} | {counts['skipped']} | {seconds:.1f}s |")
+            print("\n</details>\n")
+
+        if csv_path and os.path.isfile(csv_path):
+            counters = ("INSTRUCTION", "BRANCH", "LINE", "COMPLEXITY", "METHOD")
+            agg = {name: [0, 0] for name in counters}
+            with open(csv_path, newline="") as handle:
+                for row in csv.DictReader(handle):
+                    for name in counters:
+                        agg[name][0] += int(row[f"{name}_MISSED"])
+                        agg[name][1] += int(row[f"{name}_COVERED"])
+            print("### Coverage\n")
+            print("| Counter | Covered | Total | Coverage |")
+            print("|---|---:|---:|---:|")
+            for name, (missed, covered) in agg.items():
+                total = missed + covered
+                pct = (100.0 * covered / total) if total else 0.0
+                print(f"| {name.title()} | {covered} | {total} | {pct:.1f}% |")
+            print(f"\n<sub>Source: `{csv_path}`</sub>\n")
+        elif csv_path:
+            print(f"No JaCoCo report at `{csv_path}`.\n")
+        PY

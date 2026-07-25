@@ -1,5 +1,7 @@
 # Trackly
 
+[![CI](https://github.com/Corke123/trackly/actions/workflows/ci.yaml/badge.svg?branch=main)](https://github.com/Corke123/trackly/actions/workflows/ci.yaml)
+
 A minimal, functional Trello-like **single-board** kanban application, built as a
 microservice monorepo. Trackly is the practical showcase for the bachelor thesis
 *"Sistemi za upravljanje verzijama koda i podrška za kontinualnu integraciju i isporuku"*
@@ -93,12 +95,60 @@ Notes:
 ### Running the tests
 
 ```bash
-# Backend (per service) — unit + Testcontainers integration tests (needs Docker)
-cd board-service && mvn verify
+# Commit stage — exactly what CI runs first: compile, unit tests, unit coverage gate. No Docker.
+cd board-service && ./mvnw package
+
+# Full build — adds the Testcontainers integration tests and the merged coverage gate (needs Docker)
+cd board-service && ./mvnw verify
 
 # Frontend
 cd trackly-client && npm run lint && npm run build
 ```
+
+Use `./mvnw` rather than `mvn`: the wrapper pins the Maven version, so a local build, the CI build and the Docker build
+agree.
+
+## Continuous Integration
+
+Every push to `main` and every pull request targeting it runs
+[`.github/workflows/ci.yaml`](.github/workflows/ci.yaml). It path-filters the monorepo and fans the changed services
+into the reusable [`service-ci.yaml`](.github/workflows/service-ci.yaml) pipeline (ADR 0009), which is staged as a
+deployment pipeline (ADR 0010):
+
+| Stage             | Runs                                                                                                          | Gate             | Typical |
+|-------------------|---------------------------------------------------------------------------------------------------------------|------------------|---------|
+| Commit stage      | `./mvnw package` — compile, unit tests, JaCoCo unit gate (LINE/BRANCH ≥ 0.85)                                 | blocks the merge | ~2 min  |
+| Integration stage | `./mvnw verify` — Testcontainers (Postgres 17, Service Bus emulator), merged JaCoCo gate (LINE/BRANCH ≥ 0.90) | blocks the merge | ~6 min  |
+| Package           | Docker image build, Trivy scan, smoke test against a real Postgres                                            | blocks the merge | ~3 min  |
+
+The commit stage needs no Docker, so a mistake comes back in about two minutes; the slow, infrastructure-heavy
+verification runs behind it.
+
+**`CI required`** is the single aggregating status check to require in branch protection — the matrix and
+reusable-workflow job names change as services are added, that one does not.
+
+Test results, failing-test details, per-class timings and coverage are rendered into each run's job summary; failing
+tests are also annotated inline on the pull request. JaCoCo HTML reports, the Surefire/Failsafe XML and the application
+jar are attached to the run as artifacts. A failure on
+`main` opens (or comments on) an issue labelled `broken-build`.
+
+Every image carries its provenance: `/actuator/info` reports `build.version`, `build.revision` (the commit),
+`build.buildNumber` and `build.buildUrl`, and the package stage asserts that the running container reports the commit
+that built it.
+
+Continuous **delivery** is not wired up yet — see ADR 0010 for the seams it plugs into.
+
+### Required setup for CI
+
+These cannot be committed and must be set once in the GitHub UI:
+
+1. **Ruleset on `main`:** require a pull request with **0 required approvals** (reviews happen after integration; the
+   gate is the checks, not a reviewer), require the **`CI required`** status check, require branches to be up to date,
+   require linear history, and block force pushes and deletions.
+2. **Settings → Actions → General → Workflow permissions:** read-only. Jobs request more where they need it.
+3. **Create the labels** the workflows use: `broken-build`, `dependencies`, `ci`, `docker`,
+   `board-service`. `gh issue create --label broken-build` fails if the label does not exist.
+4. **Settings → Advanced Security:** enable Dependabot alerts and security updates.
 
 ## Deploying to Azure
 

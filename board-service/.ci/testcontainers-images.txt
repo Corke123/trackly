@@ -1,0 +1,8 @@
+# Images started by src/test/java/org/unibl/etf/pisio/boardservice/integration/TestcontainersConfig.java.
+# The integration stage pre-pulls these in parallel so the large SQL Server pull (which the
+# Service Bus emulator depends on) overlaps the small ones instead of following them.
+# Keep in sync with TestcontainersConfig: a stale entry only loses the optimisation, because
+# Testcontainers still pulls whatever it actually needs.
+postgres:17-alpine
+mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04
+mcr.microsoft.com/azure-messaging/servicebus-emulator:1.1.2
