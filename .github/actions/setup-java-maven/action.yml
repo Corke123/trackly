@@ -27,7 +27,7 @@ runs:
         cache-dependency-path: ${{ inputs.service }}/pom.xml
 
     - name: Cache the Maven wrapper distribution
-      uses: actions/cache@v4
+      uses: actions/cache@v6
       with:
         path: ~/.m2/wrapper
         key: maven-wrapper-${{ runner.os }}-${{ hashFiles(format('{0}/.mvn/wrapper/maven-wrapper.properties', inputs.service)) }}
