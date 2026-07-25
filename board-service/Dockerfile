@@ -6,8 +6,15 @@ WORKDIR /app
 COPY pom.xml .
 RUN --mount=type=cache,target=/root/.m2 mvn -B -q dependency:go-offline
 
+ARG GIT_SHA=unknown
+ARG BUILD_NUMBER=0
+ARG BUILD_URL=local
+
 COPY src ./src
-RUN --mount=type=cache,target=/root/.m2 mvn -B -q clean package -DskipTests
+RUN --mount=type=cache,target=/root/.m2 mvn -B -q clean package -DskipTests \
+      -Dgit.commit.id="$GIT_SHA" \
+      -Dci.build.number="$BUILD_NUMBER" \
+      -Dci.build.url="$BUILD_URL"
 
 RUN java -Djarmode=tools -jar target/*.jar extract --layers --destination extracted && \
     mv extracted/application/*.jar extracted/application/app.jar

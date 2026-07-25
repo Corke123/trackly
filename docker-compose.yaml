@@ -38,6 +38,7 @@ services:
 
   board-service:
     build: ./board-service
+    image: trackly/board-service:${TRACKLY_TAG:-local}
     depends_on:
       postgres:
         condition: service_healthy

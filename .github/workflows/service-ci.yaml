@@ -1,0 +1,274 @@
+name: Service CI
+
+on:
+  workflow_call:
+    inputs:
+      service:
+        description: Directory of the Maven service to build. Also used as its artifact name.
+        required: true
+        type: string
+      java-version:
+        required: false
+        type: string
+        default: '25'
+      run-integration-tests:
+        required: false
+        type: boolean
+        default: true
+      build-image:
+        required: false
+        type: boolean
+        default: true
+    outputs:
+      version:
+        description: Maven project version that was built.
+        value: ${{ jobs.commit-stage.outputs.version }}
+      image-tag:
+        description: Immutable tag of the image the package stage produced.
+        value: ${{ jobs.package.outputs.image-tag }}
+
+env:
+  MAVEN_ARGS: -B -ntp -e
+
+jobs:
+  commit-stage:
+    name: Commit stage
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      checks: write
+    outputs:
+      version: ${{ steps.project.outputs.version }}
+    defaults:
+      run:
+        working-directory: ${{ inputs.service }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-java-maven
+        with:
+          service: ${{ inputs.service }}
+          java-version: ${{ inputs.java-version }}
+
+      - id: project
+        name: Resolve project version
+        run: |
+          set -euo pipefail
+          version=$(./mvnw help:evaluate -Dexpression=project.version -q -DforceStdout)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Compile, unit-test, gate unit coverage, build the jar
+        run: |
+          ./mvnw package \
+            -Dgit.commit.id=${{ github.sha }} \
+            -Dci.build.number=${{ github.run_number }} \
+            -Dci.build.url=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+      - name: Summarise unit tests and coverage
+        if: always()
+        uses: ./.github/actions/maven-report-summary
+        with:
+          service: ${{ inputs.service }}
+          stage: Commit stage — unit tests
+          test-reports: target/surefire-reports
+          jacoco-csv: target/site/jacoco/jacoco.csv
+
+      - name: Annotate failing tests on the pull request
+        if: always()
+        uses: mikepenz/action-junit-report@d9f48fc87bc235f7e214acf696ca5abc0a986f16 # v6.4.2
+        with:
+          report_paths: ${{ inputs.service }}/target/surefire-reports/TEST-*.xml
+          check_name: ${{ inputs.service }} unit tests
+          include_passed: false
+          fail_on_failure: false
+          job_summary: false
+
+      - name: Upload unit test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.service }}-unit-reports
+          path: |
+            ${{ inputs.service }}/target/surefire-reports/
+            ${{ inputs.service }}/target/site/jacoco/
+          retention-days: 7
+          if-no-files-found: warn
+
+      - name: Upload application jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.service }}-jar
+          path: ${{ inputs.service }}/target/*.jar
+          retention-days: 7
+
+  integration-stage:
+    name: Integration stage
+    needs: commit-stage
+    if: inputs.run-integration-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      checks: write
+    defaults:
+      run:
+        working-directory: ${{ inputs.service }}
+    env:
+      TESTCONTAINERS_RYUK_DISABLED: 'true'
+      TESTCONTAINERS_CHECKS_DISABLE: 'true'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-java-maven
+        with:
+          service: ${{ inputs.service }}
+          java-version: ${{ inputs.java-version }}
+
+      - name: Pre-pull Testcontainers images in parallel
+        run: |
+          set -euo pipefail
+          list=.ci/testcontainers-images.txt
+          if [ ! -f "$list" ]; then
+            echo "No $list for ${{ inputs.service }}; letting Testcontainers pull lazily."
+            exit 0
+          fi
+          start=$SECONDS
+          while read -r image || [ -n "$image" ]; do
+            case "$image" in ''|\#*) continue ;; esac
+            ( echo "pulling $image"; docker pull -q "$image" ) &
+          done < "$list"
+          wait
+          echo "Pre-pulled Testcontainers images in $((SECONDS - start))s." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Run integration tests and gate merged coverage
+        run: |
+          ./mvnw verify \
+            -Dgit.commit.id=${{ github.sha }} \
+            -Dci.build.number=${{ github.run_number }} \
+            -Dci.build.url=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+      - name: Summarise integration tests and merged coverage
+        if: always()
+        uses: ./.github/actions/maven-report-summary
+        with:
+          service: ${{ inputs.service }}
+          stage: Integration stage — integration tests
+          test-reports: target/failsafe-reports
+          jacoco-csv: target/site/jacoco-merged/jacoco.csv
+
+      - name: Annotate failing tests on the pull request
+        if: always()
+        uses: mikepenz/action-junit-report@d9f48fc87bc235f7e214acf696ca5abc0a986f16 # v6.4.2
+        with:
+          report_paths: ${{ inputs.service }}/target/failsafe-reports/TEST-*.xml
+          check_name: ${{ inputs.service }} integration tests
+          include_passed: false
+          fail_on_failure: false
+          job_summary: false
+
+      - name: Upload integration reports and merged coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.service }}-integration-reports
+          path: |
+            ${{ inputs.service }}/target/failsafe-reports/
+            ${{ inputs.service }}/target/site/jacoco-it/
+            ${{ inputs.service }}/target/site/jacoco-merged/
+          retention-days: 7
+          if-no-files-found: warn
+
+  package:
+    name: Package
+    needs: commit-stage
+    if: inputs.build-image
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    outputs:
+      image-tag: ${{ steps.image.outputs.image-tag }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - id: image
+        name: Build and scan the container image
+        uses: ./.github/actions/docker-build
+        with:
+          service: ${{ inputs.service }}
+          image-name: trackly/${{ inputs.service }}
+          version: ${{ needs.commit-stage.outputs.version }}
+          git-sha: ${{ github.sha }}
+          build-number: ${{ github.run_number }}
+          build-url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          push: 'false'
+
+      - name: Smoke-test the image
+        env:
+          IMAGE: ${{ steps.image.outputs.image-tag }}
+        run: |
+          set -euo pipefail
+          docker network create trackly-smoke
+          docker run -d --name smoke-db --network trackly-smoke \
+            -e POSTGRES_DB=board_db \
+            -e POSTGRES_USER=trackly \
+            -e POSTGRES_PASSWORD=trackly \
+            --health-cmd 'pg_isready -U trackly -d board_db' \
+            --health-interval 3s \
+            --health-retries 20 \
+            postgres:17-alpine
+          for _ in $(seq 1 40); do
+            [ "$(docker inspect -f '{{.State.Health.Status}}' smoke-db)" = healthy ] && break
+            sleep 2
+          done
+
+          docker run -d --name smoke-app --network trackly-smoke -p 8081:8081 \
+            -e BOARD_DB_URL=jdbc:postgresql://smoke-db:5432/board_db \
+            -e BOARD_DB_USERNAME=trackly \
+            -e BOARD_DB_PASSWORD=trackly \
+            -e SERVICEBUS_CONNECTION_STRING='Endpoint=sb://smoke-none;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=SAS_KEY_VALUE;UseDevelopmentEmulator=true;' \
+            -e OUTBOX_RELAY_DELAY_MS=600000 \
+            "$IMAGE"
+
+          ok=0
+          for _ in $(seq 1 60); do
+            if curl -fsS http://localhost:8081/actuator/health | grep -q '"status":"UP"'; then
+              ok=1
+              break
+            fi
+            sleep 2
+          done
+          if [ "$ok" != 1 ]; then
+            echo "::error::the image did not report a healthy /actuator/health"
+            docker logs smoke-app
+            exit 1
+          fi
+
+          info=$(curl -fsS http://localhost:8081/actuator/info)
+          echo "$info"
+          echo "$info" | grep -q "${GITHUB_SHA}" || {
+            echo "::error::/actuator/info does not report the commit that built this image"
+            exit 1
+          }
+          {
+            echo "## Package stage"
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Image | \`$IMAGE\` |"
+            echo "| Health | UP |"
+            echo "| Reported revision | \`${GITHUB_SHA}\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Tear down the smoke environment
+        if: always()
+        run: |
+          docker rm -f smoke-app smoke-db 2>/dev/null || true
+          docker network rm trackly-smoke 2>/dev/null || true

@@ -1,0 +1,49 @@
+name: Set up Java and Maven
+description: >
+  Installs the JDK, restores the Maven repository and Maven wrapper caches, and records the
+  resolved tool versions so every build says which tools produced it.
+
+inputs:
+  service:
+    description: Service directory containing pom.xml, mvnw and .mvn/wrapper.
+    required: true
+  java-version:
+    description: JDK feature version to install.
+    required: false
+    default: '25'
+  distribution:
+    description: JDK distribution understood by actions/setup-java.
+    required: false
+    default: temurin
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-java@v5
+      with:
+        java-version: ${{ inputs.java-version }}
+        distribution: ${{ inputs.distribution }}
+        cache: maven
+        cache-dependency-path: ${{ inputs.service }}/pom.xml
+
+    - name: Cache the Maven wrapper distribution
+      uses: actions/cache@v4
+      with:
+        path: ~/.m2/wrapper
+        key: maven-wrapper-${{ runner.os }}-${{ hashFiles(format('{0}/.mvn/wrapper/maven-wrapper.properties', inputs.service)) }}
+
+    - name: Record tool versions
+      shell: bash
+      working-directory: ${{ inputs.service }}
+      run: |
+        set -euo pipefail
+        ./mvnw --version
+        {
+          echo "<details><summary>Toolchain</summary>"
+          echo
+          echo '```'
+          ./mvnw --version
+          echo '```'
+          echo
+          echo "</details>"
+        } >> "$GITHUB_STEP_SUMMARY"

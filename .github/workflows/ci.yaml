@@ -1,0 +1,137 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      force-all:
+        description: Build every service regardless of which paths changed
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  detect-changes:
+    name: Detect changed services
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      services: ${{ steps.select.outputs.services }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - id: filter
+        uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
+        with:
+          filters: |
+            board-service:
+              - 'board-service/**'
+            shared:
+              - '.github/workflows/**'
+              - '.github/actions/**'
+              - 'docker-compose.yaml'
+
+      - id: select
+        name: Build the service matrix
+        env:
+          CHANGED: ${{ steps.filter.outputs.changes }}
+          SHARED: ${{ steps.filter.outputs.shared }}
+          FORCE_ALL: ${{ inputs.force-all }}
+        run: |
+          set -euo pipefail
+          ALL='["board-service"]'
+          if [ "$SHARED" = "true" ] || [ "$FORCE_ALL" = "true" ]; then
+            SERVICES="$ALL"
+            REASON="shared paths changed"
+          else
+            SERVICES=$(printf '%s' "$CHANGED" | jq -c 'map(select(. != "shared"))')
+            REASON="path filter"
+          fi
+          echo "services=$SERVICES" >> "$GITHUB_OUTPUT"
+          {
+            echo "## Change detection"
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Reason | $REASON |"
+            echo "| Services to build | \`$SERVICES\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  build:
+    name: ${{ matrix.service }}
+    needs: detect-changes
+    if: needs.detect-changes.outputs.services != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJSON(needs.detect-changes.outputs.services) }}
+    uses: ./.github/workflows/service-ci.yaml
+    with:
+      service: ${{ matrix.service }}
+      java-version: '25'
+    permissions:
+      contents: read
+      checks: write
+
+  ci:
+    name: CI required
+    if: always()
+    needs: [ detect-changes, build ]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Assert every upstream job succeeded or was skipped
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          set -euo pipefail
+          echo "$RESULTS" | jq .
+          echo "$RESULTS" | jq -e 'to_entries
+            | all(.value.result == "success" or .value.result == "skipped")' > /dev/null
+
+  notify-broken-mainline:
+    name: Report broken mainline
+    if: failure() && github.ref == 'refs/heads/main'
+    needs: [ build ]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Open or update the broken-build issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          SHORT="${GITHUB_SHA:0:7}"
+          BODY=$(cat <<EOF
+          CI failed on \`main\` at \`${GITHUB_SHA}\` (@${GITHUB_ACTOR}).
+
+          Run: ${RUN_URL}
+
+          Fixing a broken mainline takes priority over new work: revert the offending commit,
+          or fix forward if the fix is obvious and small.
+          EOF
+          )
+          EXISTING=$(gh issue list --label broken-build --state open --json number --jq '.[0].number // empty')
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body "$BODY"
+          else
+            gh issue create --title "Broken mainline: CI failed at ${SHORT}" \
+              --label broken-build --body "$BODY"
+          fi
