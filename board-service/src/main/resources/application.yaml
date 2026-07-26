@@ -8,6 +8,8 @@ spring:
   flyway:
     enabled: true
 
+server:
+  port: ${SERVER_PORT:8081}
 
 trackly:
   servicebus:
@@ -15,8 +17,7 @@ trackly:
     topic: ${SERVICEBUS_TOPIC:board-events}
   outbox:
     relay-delay-ms: ${OUTBOX_RELAY_DELAY_MS:2000}
-server:
-  port: ${SERVER_PORT:8081}
+
 management:
   endpoints:
     web:
