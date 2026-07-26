@@ -18,6 +18,23 @@ updates:
       azure-sdk:
         patterns: [ "com.azure:*" ]
 
+  - package-ecosystem: maven
+    directory: /notification-service
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Belgrade
+    open-pull-requests-limit: 5
+    labels: [ dependencies, notification-service ]
+    groups:
+      spring-boot:
+        patterns: [ "org.springframework.boot:*" ]
+      testcontainers:
+        patterns: [ "org.testcontainers:*" ]
+      azure-sdk:
+        patterns: [ "com.azure:*" ]
+
   - package-ecosystem: github-actions
     directory: /
     schedule:
@@ -27,6 +44,13 @@ updates:
 
   - package-ecosystem: docker
     directory: /board-service
+    schedule:
+      interval: weekly
+      day: monday
+    labels: [ dependencies, docker ]
+
+  - package-ecosystem: docker
+    directory: /notification-service
     schedule:
       interval: weekly
       day: monday

@@ -3,11 +3,11 @@
 The per-service pipeline (`.github/workflows/service-ci.yaml`, called by the change-detection orchestrator from ADR
 0009) is split into a **commit stage** and two **later stages**:
 
-| Stage             | Command                             | Gate                                                     | Typical |
-|-------------------|-------------------------------------|----------------------------------------------------------|---------|
-| Commit stage      | `./mvnw package`                    | compile, unit tests, unit coverage ≥ 0.85                | ~2 min  |
-| Integration stage | `./mvnw verify`                     | Testcontainers integration tests, merged coverage ≥ 0.90 | ~6 min  |
-| Package           | `docker build` + Trivy + smoke test | image builds, starts, and reports its own revision       | ~3 min  |
+| Stage             | Command                | Gate                                                     | Typical |
+|-------------------|------------------------|----------------------------------------------------------|---------|
+| Commit stage      | `./mvnw package`       | compile, unit tests, unit coverage ≥ 0.85                | ~2 min  |
+| Integration stage | `./mvnw verify`        | Testcontainers integration tests, merged coverage ≥ 0.90 | ~6 min  |
+| Package           | `docker build` + Trivy | image builds and scans clean                             | ~3 min  |
 
 The commit stage needs no Docker and no external infrastructure, which is what keeps it inside the ten-minute feedback
 budget (Ch 3.1.7). The integration stage starts a Postgres 17 container, a SQL Server container and the Service Bus
@@ -22,9 +22,10 @@ in the same workspace as `jacoco-it.exec` for the merge to produce a real union.
 
 ## Coverage gates
 
-Coverage is a build failure, not a report, so that "self-testing build" means something. Two rules live in
-`board-service/pom.xml` (not in the workflow, so a future service can choose its own numbers without forking the
-pipeline), set from measured baselines:
+Coverage is a build failure, not a report, so that "self-testing build" means something. Two rules live in each
+service's `pom.xml` (not in the workflow, so a service can choose its own numbers without forking the pipeline). Both
+`board-service` and `notification-service` currently gate at the same numbers, set from `board-service`'s measured
+baselines:
 
 - unit-only was LINE 93.0 % / BRANCH 93.8 % → gate at **0.85**
 - merged unit ∪ integration was LINE 98.8 % / BRANCH 96.9 % → gate at **0.90**
@@ -43,9 +44,13 @@ composite action using only `python3`; failing tests are additionally annotated 
 opens (or comments on) a `broken-build` issue, because "fix broken builds immediately" needs an assignable artefact.
 Mainline runs are never cancelled by the concurrency group, so a failure stays visible and attributable.
 
-Every artefact carries its provenance: the `build-info` goal records the commit, build number and run URL, and the
-package stage **asserts** that the running container reports the commit that built it at `/actuator/info`. Version
-information that is never checked tends to quietly stop being true.
+Every artifact carries its provenance: the `build-info` goal records the commit, build number and run URL at
+`/actuator/info`. Nothing yet **asserts** that a running container reports the commit that built it, and version
+information that is never checked tends to quietly stop being true — so that assertion is owed. It belongs to an
+end-to-end test against a deployed staging environment rather than to a container the package stage starts and throws
+away: the package stage cannot exercise the service's real dependencies (a Service Bus topic it subscribes to at
+startup, a migrated database) without reassembling the compose topology per service, which duplicates the integration
+stage's Testcontainers work at a lower fidelity than staging offers.
 
 ## Considered options
 

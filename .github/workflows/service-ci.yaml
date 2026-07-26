@@ -210,65 +210,17 @@ jobs:
           build-url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           push: 'false'
 
-      - name: Smoke-test the image
+      - name: Summarise the package stage
         env:
           IMAGE: ${{ steps.image.outputs.image-tag }}
         run: |
           set -euo pipefail
-          docker network create trackly-smoke
-          docker run -d --name smoke-db --network trackly-smoke \
-            -e POSTGRES_DB=board_db \
-            -e POSTGRES_USER=trackly \
-            -e POSTGRES_PASSWORD=trackly \
-            --health-cmd 'pg_isready -U trackly -d board_db' \
-            --health-interval 3s \
-            --health-retries 20 \
-            postgres:17-alpine
-          for _ in $(seq 1 40); do
-            [ "$(docker inspect -f '{{.State.Health.Status}}' smoke-db)" = healthy ] && break
-            sleep 2
-          done
-
-          docker run -d --name smoke-app --network trackly-smoke -p 8081:8081 \
-            -e BOARD_DB_URL=jdbc:postgresql://smoke-db:5432/board_db \
-            -e BOARD_DB_USERNAME=trackly \
-            -e BOARD_DB_PASSWORD=trackly \
-            -e SERVICEBUS_CONNECTION_STRING='Endpoint=sb://smoke-none;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=SAS_KEY_VALUE;UseDevelopmentEmulator=true;' \
-            -e OUTBOX_RELAY_DELAY_MS=600000 \
-            "$IMAGE"
-
-          ok=0
-          for _ in $(seq 1 60); do
-            if curl -fsS http://localhost:8081/actuator/health | grep -q '"status":"UP"'; then
-              ok=1
-              break
-            fi
-            sleep 2
-          done
-          if [ "$ok" != 1 ]; then
-            echo "::error::the image did not report a healthy /actuator/health"
-            docker logs smoke-app
-            exit 1
-          fi
-
-          info=$(curl -fsS http://localhost:8081/actuator/info)
-          echo "$info"
-          echo "$info" | grep -q "${GITHUB_SHA}" || {
-            echo "::error::/actuator/info does not report the commit that built this image"
-            exit 1
-          }
           {
             echo "## Package stage"
             echo
             echo "| | |"
             echo "|---|---|"
             echo "| Image | \`$IMAGE\` |"
-            echo "| Health | UP |"
-            echo "| Reported revision | \`${GITHUB_SHA}\` |"
+            echo "| Version | \`${{ needs.commit-stage.outputs.version }}\` |"
+            echo "| Built from | \`${GITHUB_SHA}\` |"
           } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Tear down the smoke environment
-        if: always()
-        run: |
-          docker rm -f smoke-app smoke-db 2>/dev/null || true
-          docker network rm trackly-smoke 2>/dev/null || true
