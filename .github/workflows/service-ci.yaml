@@ -44,7 +44,7 @@ jobs:
       run:
         working-directory: ${{ inputs.service }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -120,7 +120,7 @@ jobs:
       TESTCONTAINERS_RYUK_DISABLED: 'true'
       TESTCONTAINERS_CHECKS_DISABLE: 'true'
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -194,7 +194,7 @@ jobs:
     outputs:
       image-tag: ${{ steps.image.outputs.image-tag }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
 
