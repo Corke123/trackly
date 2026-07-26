@@ -36,14 +36,24 @@ services:
     volumes:
       - ./local/servicebus-config.json:/ServiceBus_Emulator/ConfigFiles/Config.json:ro
 
+  servicebus-ready:
+    image: alpine:3.22
+    depends_on:
+      servicebus-emulator:
+        condition: service_started
+    command:
+      - sh
+      - -c
+      - 'for i in $$(seq 1 90); do nc -z servicebus-emulator 5672 && echo "Service Bus emulator is ready" && exit 0; sleep 2; done; echo "Service Bus emulator did not become ready" >&2; exit 1'
+
   board-service:
     build: ./board-service
     image: trackly/board-service:${TRACKLY_TAG:-local}
     depends_on:
       postgres:
         condition: service_healthy
-      servicebus-emulator:
-        condition: service_started
+      servicebus-ready:
+        condition: service_completed_successfully
     ports:
       - "8081:8081"
     environment:
@@ -55,4 +65,33 @@ services:
       SERVICEBUS_TOPIC: board-events
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: [ "CMD-SHELL", "wget -qO- http://localhost:8081/actuator/health/readiness | grep -q UP" ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 30s
 
+  notification-service:
+    build: ./notification-service
+    image: trackly/notification-service:${TRACKLY_TAG:-local}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      servicebus-ready:
+        condition: service_completed_successfully
+    ports:
+      - "8082:8082"
+    environment:
+      NOTIFICATION_DB_URL: jdbc:postgresql://postgres:5432/notification_db
+      NOTIFICATION_DB_USERNAME: trackly
+      NOTIFICATION_DB_PASSWORD: trackly
+      SERVICEBUS_CONNECTION_STRING: "Endpoint=sb://servicebus-emulator;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=SAS_KEY_VALUE;UseDevelopmentEmulator=true;"
+      SERVICEBUS_TOPIC: board-events
+      SERVICEBUS_SUBSCRIPTION: notification
+    healthcheck:
+      test: [ "CMD-SHELL", "wget -qO- http://localhost:8082/actuator/health/readiness | grep -q UP" ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 30s

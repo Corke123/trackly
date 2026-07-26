@@ -96,6 +96,7 @@ Notes:
 
 ```bash
 # Commit stage — exactly what CI runs first: compile, unit tests, unit coverage gate. No Docker.
+# Same two commands in either service directory: board-service, notification-service.
 cd board-service && ./mvnw package
 
 # Full build — adds the Testcontainers integration tests and the merged coverage gate (needs Docker)
@@ -119,7 +120,7 @@ deployment pipeline (ADR 0010):
 |-------------------|---------------------------------------------------------------------------------------------------------------|------------------|---------|
 | Commit stage      | `./mvnw package` — compile, unit tests, JaCoCo unit gate (LINE/BRANCH ≥ 0.85)                                 | blocks the merge | ~2 min  |
 | Integration stage | `./mvnw verify` — Testcontainers (Postgres 17, Service Bus emulator), merged JaCoCo gate (LINE/BRANCH ≥ 0.90) | blocks the merge | ~6 min  |
-| Package           | Docker image build, Trivy scan, smoke test against a real Postgres                                            | blocks the merge | ~3 min  |
+| Package           | Docker image build and Trivy scan                                                                             | blocks the merge | ~3 min  |
 
 The commit stage needs no Docker, so a mistake comes back in about two minutes; the slow, infrastructure-heavy
 verification runs behind it.
@@ -133,8 +134,8 @@ jar are attached to the run as artifacts. A failure on
 `main` opens (or comments on) an issue labelled `broken-build`.
 
 Every image carries its provenance: `/actuator/info` reports `build.version`, `build.revision` (the commit),
-`build.buildNumber` and `build.buildUrl`, and the package stage asserts that the running container reports the commit
-that built it.
+`build.buildNumber` and `build.buildUrl`. Nothing in CI starts the image to check that yet — the end-to-end test that
+does belongs against a deployed staging environment, so it arrives with continuous delivery.
 
 Continuous **delivery** is not wired up yet — see ADR 0010 for the seams it plugs into.
 
@@ -147,7 +148,7 @@ These cannot be committed and must be set once in the GitHub UI:
    require linear history, and block force pushes and deletions.
 2. **Settings → Actions → General → Workflow permissions:** read-only. Jobs request more where they need it.
 3. **Create the labels** the workflows use: `broken-build`, `dependencies`, `ci`, `docker`,
-   `board-service`. `gh issue create --label broken-build` fails if the label does not exist.
+   `board-service`, `notification-service`. `gh issue create --label broken-build` fails if the label does not exist.
 4. **Settings → Advanced Security:** enable Dependabot alerts and security updates.
 
 ## Deploying to Azure
