@@ -57,7 +57,7 @@
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-web</artifactId>
+            <artifactId>spring-boot-starter-webmvc</artifactId>
         </dependency>
         <dependency>
             <groupId>org.flywaydb</groupId>
@@ -137,10 +137,6 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <executions>
-                    <!-- Writes META-INF/build-info.properties, which Spring Boot exposes at
-                         /actuator/info. Every artefact can therefore be traced back to the
-                         commit and the pipeline run that produced it. Bound to
-                         generate-resources, so it also runs during the Docker build. -->
                     <execution>
                         <id>build-info</id>
                         <goals>
@@ -206,9 +202,6 @@
                             <goal>prepare-agent</goal>
                         </goals>
                         <configuration>
-                            <!-- The agent appends by default, so a build without `clean`
-                                 would gate on execution data accumulated from earlier runs
-                                 and report coverage the current tests do not provide. -->
                             <append>false</append>
                         </configuration>
                     </execution>
@@ -236,19 +229,8 @@
                             <goal>report-integration</goal>
                         </goals>
                     </execution>
-                    <!-- Coverage gates make the build self-testing: a failing gate fails the
-                         build, exactly like a failing test. Measured baselines when these
-                         thresholds were set: unit LINE 93.0% / BRANCH 93.8%, merged LINE
-                         ~98.8% / BRANCH ~96.9%. Both gates keep headroom, so a legitimate
-                         refactor does not break the build but deleting tests does.
-                         No <excludes>: the classes only the integration tests exercise are
-                         credited by the merged gate, which is the honest way to count them.
 
-                         Execution order below matters — same-phase executions run in
-                         declaration order. -->
                     <execution>
-                        <!-- The commit-stage gate. Bound to `test`, so `mvnw package`
-                             enforces it without ever reaching the merged rule. -->
                         <id>check-unit</id>
                         <phase>test</phase>
                         <goals>
@@ -306,8 +288,6 @@
                         </configuration>
                     </execution>
                     <execution>
-                        <!-- The integration-stage gate: unit and integration coverage
-                             combined, which is what the code is actually covered by. -->
                         <id>check-merged</id>
                         <phase>verify</phase>
                         <goals>
