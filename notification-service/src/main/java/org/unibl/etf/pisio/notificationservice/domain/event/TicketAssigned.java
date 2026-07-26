@@ -1,0 +1,19 @@
+package org.unibl.etf.pisio.notificationservice.domain.event;
+
+import java.time.Instant;
+
+public record TicketAssigned(
+        Long ticketId,
+        Long boardId,
+        String assigneeId,
+        String actorId,
+        Instant occurredAt
+) implements BoardEvent {
+
+    public static final String TYPE = "TicketAssigned";
+
+    @Override
+    public String eventType() {
+        return TYPE;
+    }
+}
