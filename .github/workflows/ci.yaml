@@ -40,6 +40,8 @@ jobs:
               - 'board-service/**'
             notification-service:
               - 'notification-service/**'
+            identity-service:
+              - 'identity-service/**'
             shared:
               - '.github/workflows/**'
               - '.github/actions/**'
@@ -53,7 +55,7 @@ jobs:
           FORCE_ALL: ${{ inputs.force-all }}
         run: |
           set -euo pipefail
-          ALL='["board-service","notification-service"]'
+          ALL='["board-service","notification-service","identity-service"]'
           if [ "$SHARED" = "true" ] || [ "$FORCE_ALL" = "true" ]; then
             SERVICES="$ALL"
             REASON="shared paths changed"

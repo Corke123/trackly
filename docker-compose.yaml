@@ -46,6 +46,28 @@ services:
       - -c
       - 'for i in $$(seq 1 90); do nc -z servicebus-emulator 5672 && echo "Service Bus emulator is ready" && exit 0; sleep 2; done; echo "Service Bus emulator did not become ready" >&2; exit 1'
 
+  identity-service:
+    build: ./identity-service
+    image: trackly/identity-service:${TRACKLY_TAG:-local}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "9000:9000"
+    environment:
+      IDENTITY_DB_URL: jdbc:postgresql://postgres:5432/identity_db
+      IDENTITY_DB_USERNAME: trackly
+      IDENTITY_DB_PASSWORD: trackly
+      TRACKLY_ISSUER_URI: http://identity-service:9000
+      # Dev-only override so the seeded "trackly" client has a known plaintext secret to authenticate with locally.
+      TRACKLY_CLIENT_SECRET: "{noop}trackly-secret"
+    healthcheck:
+      test: [ "CMD-SHELL", "wget -qO- http://localhost:9000/actuator/health/readiness | grep -q UP" ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 30s
+
   board-service:
     build: ./board-service
     image: trackly/board-service:${TRACKLY_TAG:-local}
@@ -54,17 +76,17 @@ services:
         condition: service_healthy
       servicebus-ready:
         condition: service_completed_successfully
+      identity-service:
+        condition: service_healthy
     ports:
       - "8081:8081"
     environment:
       BOARD_DB_URL: jdbc:postgresql://postgres:5432/board_db
       BOARD_DB_USERNAME: trackly
       BOARD_DB_PASSWORD: trackly
-      TRACKLY_ISSUER_URI: http://host.docker.internal:9000
+      TRACKLY_ISSUER_URI: http://identity-service:9000
       SERVICEBUS_CONNECTION_STRING: "Endpoint=sb://servicebus-emulator;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=SAS_KEY_VALUE;UseDevelopmentEmulator=true;"
       SERVICEBUS_TOPIC: board-events
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     healthcheck:
       test: [ "CMD-SHELL", "wget -qO- http://localhost:8081/actuator/health/readiness | grep -q UP" ]
       interval: 5s
@@ -80,12 +102,15 @@ services:
         condition: service_healthy
       servicebus-ready:
         condition: service_completed_successfully
+      identity-service:
+        condition: service_healthy
     ports:
       - "8082:8082"
     environment:
       NOTIFICATION_DB_URL: jdbc:postgresql://postgres:5432/notification_db
       NOTIFICATION_DB_USERNAME: trackly
       NOTIFICATION_DB_PASSWORD: trackly
+      TRACKLY_ISSUER_URI: http://identity-service:9000
       SERVICEBUS_CONNECTION_STRING: "Endpoint=sb://servicebus-emulator;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=SAS_KEY_VALUE;UseDevelopmentEmulator=true;"
       SERVICEBUS_TOPIC: board-events
       SERVICEBUS_SUBSCRIPTION: notification
