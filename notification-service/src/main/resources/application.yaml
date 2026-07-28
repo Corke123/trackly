@@ -7,6 +7,11 @@ spring:
     password: ${NOTIFICATION_DB_PASSWORD:trackly}
   flyway:
     enabled: true
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${TRACKLY_ISSUER_URI:http://localhost:9000}
 
 server:
   port: ${SERVER_PORT:8082}

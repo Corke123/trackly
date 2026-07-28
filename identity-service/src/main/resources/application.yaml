@@ -1,0 +1,55 @@
+server:
+  port: ${SERVER_PORT:9000}
+
+spring:
+  application:
+    name: identity-service
+  datasource:
+    url: ${IDENTITY_DB_URL:jdbc:postgresql://localhost:5432/identity_db}
+    username: ${IDENTITY_DB_USERNAME:trackly}
+    password: ${IDENTITY_DB_PASSWORD:trackly}
+  flyway:
+    enabled: true
+    placeholders:
+      trackly_client_id: ${TRACKLY_CLIENT_ID:trackly}
+      trackly_client_secret: "${TRACKLY_CLIENT_SECRET:{bcrypt}$2a$10$jFAJeQhWd24og77IqQoe9OHAaGc7NBPAobmEZzN9.ymkxXn2IzjVq}"
+      trackly_redirect_uri: ${TRACKLY_REDIRECT_URI:http://127.0.0.1/login/oauth2/code/trackly}
+  security:
+    oauth2:
+      authorizationserver:
+        issuer: ${TRACKLY_ISSUER_URI:http://localhost:9000}
+
+trackly:
+  jwt:
+    signing:
+      source: ${TRACKLY_JWT_SIGNING_SOURCE:pem}
+      refresh-interval: PT10M
+      published-versions: 3
+      pem:
+        # Throwaway keys for local development only - never used when source=keyvault.
+        locations:
+          - classpath:jwt/dev-signing-key.pem
+          - classpath:jwt/dev-signing-key-previous.pem
+      key-vault:
+        uri: ${TRACKLY_KEYVAULT_URI:}
+        certificate-name: ${TRACKLY_JWT_CERTIFICATE_NAME:trackly-jwt-signing}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include:
+          - health
+          - info
+  info:
+    build:
+      enabled: true
+    java:
+      enabled: true
+    os:
+      enabled: true
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never

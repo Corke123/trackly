@@ -1,0 +1,5 @@
+# Images started by src/test/java/org/unibl/etf/pisio/identityservice/integration/TestcontainersConfig.java.
+# The integration stage pre-pulls these in parallel.
+# Keep in sync with TestcontainersConfig: a stale entry only loses the optimisation, because
+# Testcontainers still pulls whatever it actually needs.
+postgres:17-alpine
