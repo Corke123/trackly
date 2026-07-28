@@ -5,14 +5,21 @@ import com.github.dockerjava.api.model.HostConfig;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.DynamicPropertyRegistrar;
 import org.springframework.test.web.servlet.client.RestTestClient;
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.web.context.WebApplicationContext;
 import org.testcontainers.azure.ServiceBusEmulatorContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.mssqlserver.MSSQLServerContainer;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.MountableFile;
+
+import java.util.List;
+
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 
 @TestConfiguration(proxyBeanMethods = false)
 public class TestcontainersConfig {
@@ -59,7 +66,21 @@ public class TestcontainersConfig {
     }
 
     @Bean
+    JwtDecoder jwtDecoder() {
+        return _ -> {
+            throw new UnsupportedOperationException(
+                    "JwtDecoder should never be invoked: the security filter chain isn't applied to RestTestClient requests in these tests");
+        };
+    }
+
+    @Bean
     RestTestClient restTestClient(WebApplicationContext context) {
-        return RestTestClient.bindToApplicationContext(context).build();
+        return RestTestClient.bindToApplicationContext(context)
+                .configureServer(builder -> builder.defaultRequest(
+                        MockMvcRequestBuilders.get("/")
+                                .with(jwt()
+                                        .jwt(token -> token.subject("admin").claim("roles", List.of("ROLE_ADMIN")))
+                                        .authorities(new SimpleGrantedAuthority("ROLE_ADMIN")))))
+                .build();
     }
 }
