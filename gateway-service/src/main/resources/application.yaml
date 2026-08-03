@@ -1,0 +1,65 @@
+server:
+  port: ${SERVER_PORT:8080}
+  forward-headers-strategy: framework
+  reactive:
+    session:
+      cookie:
+        http-only: true
+        same-site: lax
+        secure: ${SESSION_COOKIE_SECURE:false}
+
+spring:
+  application:
+    name: gateway-service
+  security:
+    oauth2:
+      client:
+        registration:
+          trackly:
+            client-id: ${TRACKLY_CLIENT_ID:trackly}
+            client-secret: ${TRACKLY_CLIENT_SECRET:trackly-secret}
+            client-name: ${TRACKLY_CLIENT_NAME:trackly}
+            provider: identity
+            scope:
+              - openid
+              - profile
+              - email
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            client-authentication-method: "client_secret_basic"
+            authorization-grant-type: "authorization_code"
+        provider:
+          identity:
+            issuer-uri: "${TRACKLY_ISSUER_URI:http://localhost:9000}"
+
+trackly:
+  gateway:
+    api-prefix: ${TRACKLY_API_PREFIX:/api}
+    serve-spa: ${TRACKLY_SERVE_SPA:false}
+    frontend-uri: ${FRONTEND_URI:http://localhost:4200}
+    backends:
+      board:
+        uri: ${BOARD_SERVICE_URI:http://localhost:8081}
+        paths: ${BOARD_SERVICE_PATHS:/boards/**,/tickets/**}
+      notification:
+        uri: ${NOTIFICATION_SERVICE_URI:http://localhost:8082}
+        paths: ${NOTIFICATION_SERVICE_PATHS:/activity/**}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include:
+          - health
+          - info
+  info:
+    build:
+      enabled: true
+    java:
+      enabled: true
+    os:
+      enabled: true
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never

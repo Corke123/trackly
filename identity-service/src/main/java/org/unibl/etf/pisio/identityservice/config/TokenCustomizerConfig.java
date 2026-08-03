@@ -8,7 +8,9 @@ import org.springframework.security.oauth2.server.authorization.OAuth2TokenType;
 import org.springframework.security.oauth2.server.authorization.token.JwtEncodingContext;
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenCustomizer;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Configuration
 public class TokenCustomizerConfig {
@@ -22,7 +24,7 @@ public class TokenCustomizerConfig {
                     List<String> roles = principal.getAuthorities()
                             .stream()
                             .map(GrantedAuthority::getAuthority)
-                            .toList();
+                            .collect(Collectors.toCollection(ArrayList::new));
                     context.getClaims().claim("roles", roles);
                 }
             }

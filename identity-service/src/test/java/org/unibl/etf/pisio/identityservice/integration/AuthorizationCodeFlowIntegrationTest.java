@@ -41,22 +41,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/**
- * Drives a full authorization_code + PKCE grant end to end against the real Postgres
- * schema (Flyway-migrated Testcontainers Postgres), the way a browser + gateway would in
- * production. This is what actually proves several of the fixes in this change:
- * <ul>
- * <li>the seeded client secret is usable (was stored without a {@code {bcrypt}} prefix,
- * see V1__registered_client.sql / application.yaml) - {@link #tokenEndpoint} exercises
- * {@code client_secret_basic}, which fails outright if that regresses;</li>
- * <li>the issued access token is signed with the durable dev PEM key (not Boot's
- * ephemeral per-startup key) and that key's public counterpart, plus the older dev key,
- * are both still published at {@code /oauth2/jwks} with no private material; and</li>
- * <li>{@code oauth2_authorization} / {@code oauth2_authorization_consent} are populated,
- * proving the Jdbc persistence beans (and the blob-&gt;text schema adaptation) work,
- * instead of the default in-memory services this change replaces.</li>
- * </ul>
- */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
 @AutoConfigureMockMvc
 @Import(TestcontainersConfig.class)
@@ -64,18 +48,15 @@ class AuthorizationCodeFlowIntegrationTest {
 
     private static final String CLIENT_ID = "trackly";
 
-    private static final String REDIRECT_URI = "http://127.0.0.1/login/oauth2/code/trackly";
+    private static final String REDIRECT_URI = "http://localhost:8080/login/oauth2/code/trackly";
 
     private static final String CLIENT_SECRET = "trackly-secret";
 
-    /**
-     * The default client secret in application.yaml is a bcrypt hash whose plaintext
-     * isn't known here. Override it with a {@code {noop}} secret with a known plaintext
-     * so the token endpoint call below can authenticate with client_secret_basic.
-     */
+
     @DynamicPropertySource
-    static void clientSecret(DynamicPropertyRegistry registry) {
+    static void registeredClient(DynamicPropertyRegistry registry) {
         registry.add("TRACKLY_CLIENT_SECRET", () -> "{noop}" + CLIENT_SECRET);
+        registry.add("TRACKLY_REDIRECT_URI", () -> REDIRECT_URI);
     }
 
     @Autowired
@@ -104,17 +85,22 @@ class AuthorizationCodeFlowIntegrationTest {
 
         assertJwksPublishesBothDevKeysWithNoPrivateMaterial();
         assertAuthorizationAndConsentWerePersisted();
+        assertUserInfoIsReadableWithTheAccessToken(accessToken);
     }
 
-    /**
-     * Spring Session (JDBC) backs the servlet session here, so the browser-visible
-     * session identity is the {@code SESSION} cookie, not a {@code MockHttpSession}
-     * object - {@code request.getSession()} on the raw {@link MvcResult} request
-     * doesn't reflect it. Carry the cookie across requests instead, the way a real
-     * browser would.
-     */
+    private void assertUserInfoIsReadableWithTheAccessToken(String accessToken) throws Exception {
+        MvcResult userInfoResult = mockMvc
+                .perform(get("/userinfo").header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        Map<String, Object> claims = objectMapper.readValue(userInfoResult.getResponse().getContentAsString(),
+                Map.class);
+        assertThat(claims).containsEntry("sub", "demo");
+    }
+
     private Cookie loginAsDemo() throws Exception {
-        MvcResult result = this.mockMvc
+        MvcResult result = mockMvc
                 .perform(post("/login").with(csrf()).param("username", "demo").param("password", "demo"))
                 .andExpect(status().is3xxRedirection())
                 .andReturn();
@@ -126,13 +112,8 @@ class AuthorizationCodeFlowIntegrationTest {
     private static final Pattern CONSENT_STATE_FIELD = Pattern
             .compile("name=\"state\" value=\"([^\"]*)\"");
 
-    /**
-     * Requests {@code openid profile} rather than just {@code openid} specifically so
-     * consent is required (the authorization server skips consent when {@code openid}
-     * is the only requested scope), exercising the consent persistence path.
-     */
     private String authorizeWithConsent(Cookie sessionCookie, String state, String codeChallenge) throws Exception {
-        MvcResult authorizeResult = this.mockMvc
+        MvcResult authorizeResult = mockMvc
                 .perform(get("/oauth2/authorize").cookie(sessionCookie)
                         .queryParam(OAuth2ParameterNames.RESPONSE_TYPE, "code")
                         .queryParam(OAuth2ParameterNames.CLIENT_ID, CLIENT_ID)
@@ -150,17 +131,9 @@ class AuthorizationCodeFlowIntegrationTest {
             sessionAfterAuthorize = sessionCookie;
         }
 
-        // The consent page's hidden "state" field is an opaque token the authorization
-        // server mints to correlate this consent submission with the pending
-        // authorization request - it is NOT the client's own OAuth2 "state" parameter
-        // (that one is preserved separately and only reappears on the final redirect),
-        // so it has to be read back out of the rendered form.
         String consentState = extractConsentState(authorizeResult.getResponse().getContentAsString());
 
-        // Approve consent: only the not-yet-authorized scope ("profile") needs to be
-        // submitted - the authorization server re-adds "openid" automatically once any
-        // scope is approved.
-        MvcResult consentResult = this.mockMvc
+        MvcResult consentResult = mockMvc
                 .perform(post("/oauth2/authorize").cookie(sessionAfterAuthorize)
                         .param(OAuth2ParameterNames.CLIENT_ID, CLIENT_ID)
                         .param(OAuth2ParameterNames.STATE, consentState)
@@ -173,8 +146,6 @@ class AuthorizationCodeFlowIntegrationTest {
         MultiValueMap<String, String> redirectParams = UriComponentsBuilder.fromUriString(location)
                 .build()
                 .getQueryParams();
-        // The client's own "state" (as opposed to the server-minted consent state
-        // above) must round-trip unchanged to the redirect_uri, per RFC 6749 4.1.2.
         assertThat(redirectParams.getFirst("state")).isEqualTo(state);
         String code = redirectParams.getFirst("code");
         assertThat(code).isNotBlank();
@@ -190,7 +161,7 @@ class AuthorizationCodeFlowIntegrationTest {
                         .param("code_verifier", codeVerifier))
                 .andExpect(status().isOk())
                 .andReturn();
-        return this.objectMapper.readValue(tokenResult.getResponse().getContentAsString(), Map.class);
+        return objectMapper.readValue(tokenResult.getResponse().getContentAsString(), Map.class);
     }
 
     private void assertJwksPublishesBothDevKeysWithNoPrivateMaterial() throws Exception {
