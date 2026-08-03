@@ -1,0 +1,19 @@
+# Build context for gateway-service, which is the repository root because its image bundles the
+# SPA (ADR 0006). Every other service builds from its own directory and uses its own .dockerignore.
+**/target/
+**/node_modules/
+**/.git/
+**/.idea/
+**/*.iml
+**/.mvn/
+trackly-client/dist/
+trackly-client/.angular/
+
+# Nothing outside gateway-service and trackly-client contributes to the gateway image.
+board-service/
+identity-service/
+notification-service/
+infra/
+docs/
+local/
+.github/

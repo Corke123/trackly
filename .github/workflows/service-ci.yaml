@@ -19,6 +19,13 @@ on:
         required: false
         type: boolean
         default: true
+      docker-context:
+        description: >
+          Docker build context, for a service whose image needs more than its own directory.
+          Defaults to the service directory.
+        required: false
+        type: string
+        default: ''
     outputs:
       version:
         description: Maven project version that was built.
@@ -203,6 +210,7 @@ jobs:
         uses: ./.github/actions/docker-build
         with:
           service: ${{ inputs.service }}
+          context: ${{ inputs.docker-context }}
           image-name: trackly/${{ inputs.service }}
           version: ${{ needs.commit-stage.outputs.version }}
           git-sha: ${{ github.sha }}

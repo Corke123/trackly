@@ -21,28 +21,30 @@ and builds an **Activity** feed.
 ## Architecture at a glance
 
 ```
-Browser ─► Azure Static Web Apps (Angular 22 SPA)
-              │  reverse-proxies /api, /login, /oauth2
-              ▼
-        gateway-service  (Spring Cloud Gateway — BFF, oauth2Login + TokenRelay)
-         ├─► identity-service      (Spring Authorization Server — issues JWTs)
-         ├─► board-service         (boards / swimlanes / tickets + outbox)
-         └─► notification-service  (activity feed)
+Browser ─► gateway-service  (Spring Cloud Gateway — BFF, oauth2Login + TokenRelay)
+              │   one origin: serves the SPA on /**, the API on /api/**
+              │
+              ├─► identity-service      (Spring Authorization Server — issues JWTs)
+              ├─► board-service         (boards / swimlanes / tickets + outbox)
+              └─► notification-service  (activity feed)
                     ▲
         board ──► Service Bus topic (board-events) ──► notification
 ```
 
-| Component | Stack | Azure target |
-|-----------|-------|--------------|
-| `trackly-client` | Angular 22 + Material | Static Web Apps |
-| `gateway-service` | Spring Cloud Gateway (WebFlux) | Container Apps |
-| `identity-service` | Spring Authorization Server | Container Apps |
-| `board-service` | Spring Boot 4.1 (WebFlux/MVC) | Container Apps |
-| `notification-service` | Spring Boot 4.1 | Container Apps |
-| Databases | PostgreSQL Flexible Server (DB per service) | Azure |
-| Messaging | Service Bus (Standard, topic) | Azure |
-| Secrets | Key Vault (via managed identity) | Azure |
-| Images | Azure Container Registry (Basic) | Azure |
+The browser holds nothing but an opaque session cookie; the gateway keeps the tokens and relays them as Bearer tokens
+(ADR 0005). Both live on one origin because the gateway serves the SPA itself (ADR 0006).
+
+| Component              | Stack                                       | Azure target                   |
+|------------------------|---------------------------------------------|--------------------------------|
+| `trackly-client`       | Angular 22 + Material                       | bundled into the gateway image |
+| `gateway-service`      | Spring Cloud Gateway (WebFlux)              | Container Apps                 |
+| `identity-service`     | Spring Authorization Server                 | Container Apps                 |
+| `board-service`        | Spring Boot 4.1 (WebFlux/MVC)               | Container Apps                 |
+| `notification-service` | Spring Boot 4.1                             | Container Apps                 |
+| Databases              | PostgreSQL Flexible Server (DB per service) | Azure                          |
+| Messaging              | Service Bus (Standard, topic)               | Azure                          |
+| Secrets                | Key Vault (via managed identity)            | Azure                          |
+| Images                 | Azure Container Registry (Basic)            | Azure                          |
 
 See [`docs/adr/`](docs/adr) for the architectural decisions and their rationale, and
 [`CONTEXT.md`](CONTEXT.md) for the domain glossary.
@@ -75,28 +77,38 @@ trackly/
 Requires **Java 25**, **Node 24**, and **Docker**.
 
 ```bash
-# 1. Start the backend stack (Postgres + Service Bus emulator + all four services)
 docker compose up --build
-
-# 2. In another terminal, run the Angular dev server
-cd trackly-client && npm ci && npm start
 ```
 
-Open <http://localhost:8080>. The gateway serves the SPA and the API on one origin, so the
-BFF session cookie is first-party (mirroring production). You'll be redirected to the
-identity login page — sign in with the demo credentials **`demo` / `demo`**.
+Open <http://localhost:8080>. The gateway serves the SPA and the API on one origin, so the BFF session cookie is
+first-party (mirroring production). You'll be redirected to the identity login page — sign in with the demo credentials
+**`demo` / `demo`**, then approve the consent screen.
+
+To work on the front-end with live reload, have the gateway proxy the dev server instead of serving its bundled copy —
+the origin, and therefore the session cookie, stays the same either way (ADR 0006):
+
+```bash
+TRACKLY_SERVE_SPA=false docker compose up -d gateway-service
+cd trackly-client && npm ci && npm start
+```
 
 Notes:
 - The OIDC issuer is `http://host.docker.internal:9000` so the browser and the containers
   agree on the issuer in tokens. identity-service is published on `9000`.
 - `docker compose up` waits for identity to be healthy before starting the gateway (the
   gateway performs OIDC discovery at startup).
+- Pass `--build` when the SPA or a service changed: without it Compose reuses whatever
+  `trackly/*:local` image it already has, which silently runs stale code.
+- The authorization server only redirects back to a **registered** URI, seeded from
+  `TRACKLY_REDIRECT_URI`/`TRACKLY_POST_LOGOUT_REDIRECT_URI`. Reaching the gateway on a different origin (`127.0.0.1`
+  rather than `localhost`, say) fails the redirect until those are changed to match.
 
 ### Running the tests
 
 ```bash
 # Commit stage — exactly what CI runs first: compile, unit tests, unit coverage gate. No Docker.
-# Same two commands in either service directory: board-service, notification-service.
+# Same two commands in any service directory: board-service, notification-service,
+# identity-service, gateway-service.
 cd board-service && ./mvnw package
 
 # Full build — adds the Testcontainers integration tests and the merged coverage gate (needs Docker)
@@ -125,6 +137,10 @@ deployment pipeline (ADR 0010):
 The commit stage needs no Docker, so a mistake comes back in about two minutes; the slow, infrastructure-heavy
 verification runs behind it.
 
+`gateway-service` goes through the same three stages as every other service, with one difference: its image bundles the
+SPA (ADR 0006), so a change under `trackly-client/**` triggers the gateway's build, and the gateway's image is the only
+one built from the repository root rather than its own directory.
+
 **`CI required`** is the single aggregating status check to require in branch protection — the matrix and
 reusable-workflow job names change as services are added, that one does not.
 
@@ -148,7 +164,8 @@ These cannot be committed and must be set once in the GitHub UI:
    require linear history, and block force pushes and deletions.
 2. **Settings → Actions → General → Workflow permissions:** read-only. Jobs request more where they need it.
 3. **Create the labels** the workflows use: `broken-build`, `dependencies`, `ci`, `docker`,
-   `board-service`, `notification-service`. `gh issue create --label broken-build` fails if the label does not exist.
+   `board-service`, `notification-service`, `identity-service`, `gateway-service`.
+   `gh issue create --label broken-build` fails if the label does not exist.
 4. **Settings → Advanced Security:** enable Dependabot alerts and security updates.
 
 ## Deploying to Azure
@@ -162,12 +179,9 @@ Infrastructure is Terraform (`infra/`); application delivery is GitHub Actions. 
    Terraform.
 3. Push to `main`: the pipeline builds images, deploys to **staging**, then to
    **production** after a manual approval (Ch 3.2), using blue-green releases (Ch 3.3).
-4. One-time: link the gateway as the Static Web App backend so `/api`, `/login`, `/oauth2`
-   are reverse-proxied to it (ADR 0006):
-   ```bash
-   az staticwebapp backends link --name <swa-name> --resource-group <rg> \
-     --backend-resource-id <gateway-container-app-id> --backend-region <region>
-   ```
+
+The gateway container app is the only public entry point — it serves the SPA and is the OAuth2
+`redirect-uri` — so there is no separate front-end hosting to provision or link (ADR 0006).
 
 ### Required GitHub configuration
 
@@ -175,15 +189,16 @@ Repository-level **variables**: `ACR_NAME`, `ACR_LOGIN_SERVER`, `TFSTATE_RESOURC
 `TFSTATE_STORAGE_ACCOUNT`.
 
 Per **Environment** (`staging`, `production`) **variables**: `AZURE_CLIENT_ID`,
-`AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `RESOURCE_GROUP`. Per-environment **secret**:
-`SWA_API_TOKEN` (Static Web Apps deployment token). The `production` environment must have a
+`AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `RESOURCE_GROUP`. The `production` environment must have a
 **required-reviewers** protection rule to realise the approval gate.
 
 `main` should be a **protected branch** requiring the CI checks to pass (Ch 3.1.6).
 
 ## Build & verification status
 
-All four services compile against Java 25 / Spring Boot 4.1 and the Angular app builds
-against Angular 22 / TypeScript 6. Terraform validates. Steps that require an Azure
-subscription or the live GitHub repository (the OIDC dance, the actual deploys, the SWA
-backend link) are documented above and must be run in your environment.
+All four services compile against Java 25 / Spring Boot 4.1 and the Angular app builds against Angular 22 / TypeScript
+
+6. Terraform validates. The BFF login has been driven end to end against the Compose stack: the gateway serves the SPA,
+   `demo` signs in at identity-service with PKCE, and `/api/**` reaches the resource servers with a relayed Bearer token
+   while the browser holds only a session cookie. Steps that require an Azure subscription or the live GitHub repository
+   (the OIDC dance, the actual deploys) are documented above and must be run in your environment.
