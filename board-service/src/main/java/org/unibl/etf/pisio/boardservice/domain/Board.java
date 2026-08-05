@@ -7,6 +7,7 @@ import org.unibl.etf.pisio.boardservice.exception.IncompleteSwimlaneOrderExcepti
 import org.unibl.etf.pisio.boardservice.exception.SwimlaneNotOnBoardException;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -56,7 +57,7 @@ public record Board(
         Map<Long, Swimlane> byId = this.swimlanes.stream()
                 .collect(Collectors.toMap(Swimlane::id, Function.identity()));
 
-        if (orderedSwimlaneIds.size() != byId.size() || !byId.keySet().containsAll(orderedSwimlaneIds)) {
+        if (orderedSwimlaneIds.size() != byId.size() || !new HashSet<>(orderedSwimlaneIds).equals(byId.keySet())) {
             throw new IncompleteSwimlaneOrderException(this.id, byId.keySet(), orderedSwimlaneIds);
         }
 

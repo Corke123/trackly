@@ -74,6 +74,21 @@ class BoardServiceTest {
     }
 
     @Test
+    @DisplayName("Given a saved board that comes back with its swimlanes in another order, when addSwimlane is called, then the new swimlane is returned rather than the last one")
+    void addSwimlaneFindsTheNewSwimlaneWhateverTheOrder() {
+        Swimlane toDo = new Swimlane(10L, "To Do");
+        Swimlane doing = new Swimlane(20L, "Doing");
+        Swimlane done = new Swimlane(30L, "Done");
+        Board existingBoard = new Board(1L, "Board", List.of(toDo, doing));
+        when(boardRepository.findById(1L)).thenReturn(Optional.of(existingBoard));
+        when(boardRepository.save(any(Board.class))).thenReturn(new Board(1L, "Board", List.of(toDo, done, doing)));
+
+        Swimlane result = boardService.addSwimlane(1L, "Done");
+
+        assertThat(result).isEqualTo(done);
+    }
+
+    @Test
     @DisplayName("Given an existing board, when renameBoard is called, then the renamed board is persisted and returned")
     void renameBoard() {
         Board existingBoard = new Board(1L, "Board", List.of(new Swimlane(10L, "To Do")));
@@ -155,6 +170,20 @@ class BoardServiceTest {
         List<Long> orderMissingToDo = List.of(20L);
 
         assertThrows(IncompleteSwimlaneOrderException.class, () -> boardService.reorderSwimlanes(1L, orderMissingToDo));
+
+        verify(boardRepository, never()).updateSwimlaneOrder(any(), any());
+    }
+
+    @Test
+    @DisplayName("Given an order that names one swimlane twice, when reorderSwimlanes is called, then IncompleteSwimlaneOrderException is thrown and no position is written")
+    void reorderSwimlanesDuplicateSwimlane() {
+        Board board = new Board(1L, "Board",
+                List.of(new Swimlane(10L, "To Do"), new Swimlane(20L, "Doing"), new Swimlane(30L, "Done")));
+        when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
+        List<Long> orderNamingDoingTwice = List.of(20L, 10L, 20L);
+
+        assertThrows(IncompleteSwimlaneOrderException.class,
+                () -> boardService.reorderSwimlanes(1L, orderNamingDoingTwice));
 
         verify(boardRepository, never()).updateSwimlaneOrder(any(), any());
     }

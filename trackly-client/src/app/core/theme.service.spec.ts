@@ -1,14 +1,24 @@
 import { DOCUMENT } from '@angular/common';
 import { TestBed } from '@angular/core/testing';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { THEME_STORAGE_KEY, ThemeService } from './theme.service';
 
 describe('ThemeService', () => {
+  const realMatchMedia = Object.getOwnPropertyDescriptor(window, 'matchMedia');
+
   beforeEach(() => {
     localStorage.clear();
     document.documentElement.className = '';
     document.documentElement.style.colorScheme = '';
     stubSystemPreference(false);
+  });
+
+  afterEach(() => {
+    if (realMatchMedia) {
+      Object.defineProperty(window, 'matchMedia', realMatchMedia);
+    } else {
+      Reflect.deleteProperty(window, 'matchMedia');
+    }
   });
 
   function create(): ThemeService {

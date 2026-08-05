@@ -49,6 +49,7 @@ describe('AuthService', () => {
 
 describe('AuthService logout', () => {
   const submit = vi.fn();
+  const realSubmit = Object.getOwnPropertyDescriptor(HTMLFormElement.prototype, 'submit');
   let auth: AuthService;
 
   beforeEach(() => {
@@ -73,6 +74,9 @@ describe('AuthService logout', () => {
   afterEach(() => {
     document.querySelectorAll('form').forEach((form) => form.remove());
     document.cookie = 'XSRF-TOKEN=; Max-Age=0';
+    if (realSubmit) {
+      Object.defineProperty(HTMLFormElement.prototype, 'submit', realSubmit);
+    }
   });
 
   it('leaves the app with a form POST so the OIDC logout redirects can be followed', () => {

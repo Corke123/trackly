@@ -19,6 +19,8 @@ import org.unibl.etf.pisio.boardservice.repository.TicketRepository;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 @Service
@@ -48,12 +50,16 @@ public class BoardService {
 
     public Swimlane addSwimlane(Long boardId, String title) {
         Board board = requireBoard(boardId);
+        Set<Long> idsBefore = board.swimlanes().stream().map(Swimlane::id).collect(Collectors.toSet());
 
         Board boardWithNewSwimlane = board.addSwimlane(title);
         Board updatedBoard = boardRepository.save(boardWithNewSwimlane);
 
-        List<Swimlane> swimlanes = updatedBoard.swimlanes();
-        return swimlanes.getLast();
+        return updatedBoard.swimlanes().stream()
+                .filter(swimlane -> !idsBefore.contains(swimlane.id()))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException(
+                        "Swimlane '" + title + "' is missing from board " + boardId + " after it was saved"));
     }
 
     /**
