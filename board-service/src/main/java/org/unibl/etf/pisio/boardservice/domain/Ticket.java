@@ -21,6 +21,10 @@ public record Ticket(
         this(null, boardId, swimlaneId, title, description, null, position, Instant.now());
     }
 
+    public Ticket atPosition(int newPosition) {
+        return new Ticket(this.id, this.boardId, this.swimlaneId, this.title, this.description, this.assigneeId, newPosition, this.createdAt);
+    }
+
     public Ticket moveTo(Long newSwimlaneId, int newPosition) {
         return new Ticket(this.id, this.boardId, newSwimlaneId, this.title, this.description, this.assigneeId, newPosition, this.createdAt);
     }

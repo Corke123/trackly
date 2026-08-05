@@ -1,0 +1,68 @@
+:host {
+  display: block;
+}
+
+.ticket {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border-radius: var(--mat-sys-corner-medium);
+  background: var(--mat-sys-surface);
+  color: var(--mat-sys-on-surface);
+  border: 1px solid var(--mat-sys-outline-variant);
+  cursor: grab;
+}
+
+.ticket:active {
+  cursor: grabbing;
+}
+
+.ticket__header {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.25rem;
+}
+
+.ticket__title {
+  flex: 1 1 auto;
+  margin: 0;
+  font: var(--mat-sys-title-small);
+  overflow-wrap: anywhere;
+}
+
+.ticket__menu-trigger {
+  flex: 0 0 auto;
+  margin: -0.5rem -0.5rem 0 0;
+}
+
+.ticket__description {
+  margin: 0;
+  font: var(--mat-sys-body-small);
+  color: var(--mat-sys-on-surface-variant);
+  overflow-wrap: anywhere;
+}
+
+.ticket__footer {
+  display: flex;
+  align-items: center;
+}
+
+.ticket__assignee {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font: var(--mat-sys-label-small);
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.ticket__assignee--empty {
+  font-style: italic;
+  opacity: 0.75;
+}
+
+.ticket__assignee-icon {
+  font-size: 1rem;
+  width: 1rem;
+  height: 1rem;
+}

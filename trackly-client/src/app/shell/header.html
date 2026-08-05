@@ -1,0 +1,52 @@
+<mat-toolbar class="header">
+  <div class="header__title">
+    <h1 class="header__board-name" data-testid="board-name">{{ boardName() }}</h1>
+
+    @if (canRename()) {
+      <button
+        matIconButton
+        type="button"
+        data-testid="rename-board"
+        aria-label="Rename board"
+        matTooltip="Rename board"
+        (click)="rename.emit()"
+      >
+        <mat-icon svgIcon="edit" />
+      </button>
+    }
+  </div>
+
+  <span class="header__spacer"></span>
+
+  <button
+    matIconButton
+    type="button"
+    data-testid="theme-toggle"
+    [attr.aria-label]="themeToggleLabel()"
+    [matTooltip]="themeToggleLabel()"
+    (click)="toggleTheme()"
+  >
+    <mat-icon [svgIcon]="isDark() ? 'light_mode' : 'dark_mode'" />
+  </button>
+
+  <button
+    matButton
+    type="button"
+    data-testid="user-menu"
+    [matMenuTriggerFor]="userMenu"
+    [attr.aria-label]="'Signed in as ' + username()"
+  >
+    <mat-icon svgIcon="account_circle" />
+    <span class="header__username">{{ username() }}</span>
+  </button>
+
+  <mat-menu #userMenu="matMenu">
+    <div class="header__menu-identity" mat-menu-item [disabled]="true">
+      Signed in as <strong>{{ username() }}</strong>
+    </div>
+    <button mat-menu-item type="button" data-testid="logout" (click)="logout()">
+      <mat-icon svgIcon="logout" />
+      <span>Log out</span>
+    </button>
+  </mat-menu>
+</mat-toolbar>

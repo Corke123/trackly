@@ -16,6 +16,7 @@ import org.unibl.etf.pisio.boardservice.integration.ServiceBusTestSupportConfig.
 import org.unibl.etf.pisio.boardservice.repository.TicketRepository;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.unibl.etf.pisio.boardservice.integration.BoardIntegrationTestSupport.*;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -85,7 +86,7 @@ class TicketControllerIntegrationTest {
         assertThat(payload.get("ticketId").asLong()).isEqualTo(ticketId);
         assertThat(payload.get("fromSwimlaneId").asLong()).isEqualTo(fromSwimlaneId);
         assertThat(payload.get("toSwimlaneId").asLong()).isEqualTo(toSwimlaneId);
-        assertThat(payload.get("actorId").asText()).isEqualTo("anonymous");
+        assertThat(payload.get("actorId").asText()).isEqualTo("admin");
     }
 
     @Test
@@ -114,6 +115,51 @@ class TicketControllerIntegrationTest {
         JsonNode payload = objectMapper.readTree(event.getBody().toString());
         assertThat(payload.get("ticketId").asLong()).isEqualTo(ticketId);
         assertThat(payload.get("assigneeId").asText()).isEqualTo("user-1");
-        assertThat(payload.get("actorId").asText()).isEqualTo("anonymous");
+        assertThat(payload.get("actorId").asText()).isEqualTo("admin");
+    }
+
+    @Test
+    @DisplayName("Given a ticket dragged out of the middle of a swimlane, when PATCH /tickets/{ticketId} is called, then both swimlanes are left densely numbered from zero")
+    void moveTicketRenumbersBothSwimlanes() {
+        Long boardId = createBoard(restTestClient, "Board");
+        Long fromSwimlaneId = addSwimlane(restTestClient, boardId, "To Do");
+        Long toSwimlaneId = addSwimlane(restTestClient, boardId, "Doing");
+        Long first = createTicket(restTestClient, boardId, fromSwimlaneId, "First", null);
+        Long second = createTicket(restTestClient, boardId, fromSwimlaneId, "Second", null);
+        Long third = createTicket(restTestClient, boardId, fromSwimlaneId, "Third", null);
+        Long alreadyThere = createTicket(restTestClient, boardId, toSwimlaneId, "Already there", null);
+
+        restTestClient.patch()
+                .uri("/tickets/{ticketId}", second)
+                .body(new UpdateTicket(toSwimlaneId, 0, null))
+                .exchange()
+                .expectStatus().isOk();
+
+        assertThat(ticketRepository.findBySwimlaneIdOrderByPositionAsc(fromSwimlaneId))
+                .extracting(Ticket::id, Ticket::position)
+                .containsExactly(tuple(first, 0), tuple(third, 1));
+        assertThat(ticketRepository.findBySwimlaneIdOrderByPositionAsc(toSwimlaneId))
+                .extracting(Ticket::id, Ticket::position)
+                .containsExactly(tuple(second, 0), tuple(alreadyThere, 1));
+    }
+
+    @Test
+    @DisplayName("Given a ticket reordered inside its swimlane, when PATCH /tickets/{ticketId} is called, then the remaining tickets shift to keep a dense order")
+    void moveTicketReordersWithinSwimlane() {
+        Long boardId = createBoard(restTestClient, "Board");
+        Long swimlaneId = addSwimlane(restTestClient, boardId, "To Do");
+        Long first = createTicket(restTestClient, boardId, swimlaneId, "First", null);
+        Long second = createTicket(restTestClient, boardId, swimlaneId, "Second", null);
+        Long third = createTicket(restTestClient, boardId, swimlaneId, "Third", null);
+
+        restTestClient.patch()
+                .uri("/tickets/{ticketId}", third)
+                .body(new UpdateTicket(swimlaneId, 0, null))
+                .exchange()
+                .expectStatus().isOk();
+
+        assertThat(ticketRepository.findBySwimlaneIdOrderByPositionAsc(swimlaneId))
+                .extracting(Ticket::id, Ticket::position)
+                .containsExactly(tuple(third, 0), tuple(first, 1), tuple(second, 2));
     }
 }

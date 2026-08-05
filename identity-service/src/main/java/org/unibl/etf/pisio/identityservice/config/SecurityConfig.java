@@ -7,6 +7,8 @@ import org.springframework.http.MediaType;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
 import org.springframework.security.web.util.matcher.MediaTypeRequestMatcher;
@@ -42,8 +44,25 @@ public class SecurityConfig {
         return httpSecurity.build();
     }
 
+    /**
+     * The user directory is a plain API for the gateway to relay a bearer token to, so it needs a
+     * resource-server chain of its own — the default chain below is the browser-facing login UI.
+     */
     @Bean
     @Order(2)
+    public SecurityFilterChain userApiSecurityFilterChain(HttpSecurity httpSecurity) {
+        httpSecurity
+                .securityMatcher("/users/**")
+                .csrf(AbstractHttpConfigurer::disable)
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(authorize -> authorize.anyRequest().authenticated())
+                .oauth2ResourceServer(resourceServer -> resourceServer.jwt(Customizer.withDefaults()));
+
+        return httpSecurity.build();
+    }
+
+    @Bean
+    @Order(3)
     public SecurityFilterChain defaultSecurityFilterChain(HttpSecurity httpSecurity) {
 
         httpSecurity

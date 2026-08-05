@@ -3,9 +3,15 @@ package org.unibl.etf.pisio.boardservice.domain;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.mapping.MappedCollection;
 import org.springframework.data.relational.core.mapping.Table;
+import org.unibl.etf.pisio.boardservice.exception.IncompleteSwimlaneOrderException;
+import org.unibl.etf.pisio.boardservice.exception.SwimlaneNotOnBoardException;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Table("board")
 public record Board(
@@ -27,8 +33,43 @@ public record Board(
         return new Board(this.id, this.name, updatedSwimlanes);
     }
 
-    public boolean hasSwimlane(Long swimlaneId) {
+    public Board rename(String newName) {
+        return new Board(this.id, newName, this.swimlanes);
+    }
+
+    public Board removeSwimlane(Long swimlaneId) {
+        if (hasNotSwimlane(swimlaneId)) {
+            throw new SwimlaneNotOnBoardException(this.id, swimlaneId);
+        }
+
+        List<Swimlane> remaining = this.swimlanes.stream()
+                .filter(swimlane -> !swimlane.id().equals(swimlaneId))
+                .toList();
+
+        return new Board(this.id, this.name, remaining);
+    }
+
+    /**
+     * The swimlane order is the order of this list — Spring Data JDBC writes each element's index
+     * into the {@code position} column — so reordering is rebuilding the list in the given order.
+     */
+    public Board reorderSwimlanes(List<Long> orderedSwimlaneIds) {
+        Map<Long, Swimlane> byId = this.swimlanes.stream()
+                .collect(Collectors.toMap(Swimlane::id, Function.identity()));
+
+        if (orderedSwimlaneIds.size() != byId.size() || !new HashSet<>(orderedSwimlaneIds).equals(byId.keySet())) {
+            throw new IncompleteSwimlaneOrderException(this.id, byId.keySet(), orderedSwimlaneIds);
+        }
+
+        List<Swimlane> reordered = orderedSwimlaneIds.stream()
+                .map(byId::get)
+                .toList();
+
+        return new Board(this.id, this.name, reordered);
+    }
+
+    public boolean hasNotSwimlane(Long swimlaneId) {
         return swimlanes.stream()
-                .anyMatch(s -> s.id() != null && s.id().equals(swimlaneId));
+                .noneMatch(s -> s.id() != null && s.id().equals(swimlaneId));
     }
 }

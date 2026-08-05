@@ -20,6 +20,7 @@ import org.testcontainers.utility.MountableFile;
 import java.util.List;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
+import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 
 @TestConfiguration(proxyBeanMethods = false)
 public class TestcontainersConfig {
@@ -75,12 +76,26 @@ public class TestcontainersConfig {
 
     @Bean
     RestTestClient restTestClient(WebApplicationContext context) {
+        return clientAuthenticatedAs(context, "admin", "ROLE_ADMIN");
+    }
+
+    /**
+     * A second client carrying only ROLE_USER, so the tests can prove the admin-only endpoints are
+     * actually closed to ordinary users rather than merely hidden in the UI.
+     */
+    @Bean
+    RestTestClient userRestTestClient(WebApplicationContext context) {
+        return clientAuthenticatedAs(context, "demo", "ROLE_USER");
+    }
+
+    private RestTestClient clientAuthenticatedAs(WebApplicationContext context, String subject, String role) {
         return RestTestClient.bindToApplicationContext(context)
-                .configureServer(builder -> builder.defaultRequest(
-                        MockMvcRequestBuilders.get("/")
+                .configureServer(builder -> builder
+                        .apply(springSecurity())
+                        .defaultRequest(MockMvcRequestBuilders.get("/")
                                 .with(jwt()
-                                        .jwt(token -> token.subject("admin").claim("roles", List.of("ROLE_ADMIN")))
-                                        .authorities(new SimpleGrantedAuthority("ROLE_ADMIN")))))
+                                        .jwt(token -> token.subject(subject).claim("roles", List.of(role)))
+                                        .authorities(new SimpleGrantedAuthority(role)))))
                 .build();
     }
 }

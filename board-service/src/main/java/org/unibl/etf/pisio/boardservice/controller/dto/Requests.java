@@ -1,8 +1,11 @@
 package org.unibl.etf.pisio.boardservice.controller.dto;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
+
+import java.util.List;
 
 public final class Requests {
 
@@ -14,7 +17,15 @@ public final class Requests {
 
     }
 
+    public record RenameBoard(@NotBlank String name) {
+
+    }
+
     public record CreateSwimlane(@NotBlank String title) {
+
+    }
+
+    public record ReorderSwimlanes(@NotEmpty List<Long> swimlaneIds) {
 
     }
 

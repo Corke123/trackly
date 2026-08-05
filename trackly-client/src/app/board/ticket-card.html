@@ -1,0 +1,68 @@
+<article class="ticket" [attr.data-testid]="'ticket-' + ticket().id" [attr.aria-label]="ticket().title">
+  <div class="ticket__header">
+    <h3 class="ticket__title">{{ ticket().title }}</h3>
+
+    <button
+      matIconButton
+      type="button"
+      class="ticket__menu-trigger"
+      [matMenuTriggerFor]="ticketMenu"
+      [attr.data-testid]="'ticket-menu-' + ticket().id"
+      [attr.aria-label]="'Actions for ' + ticket().title"
+    >
+      <mat-icon svgIcon="more_vert" />
+    </button>
+  </div>
+
+  @if (ticket().description) {
+    <p class="ticket__description">{{ ticket().description }}</p>
+  }
+
+  <footer class="ticket__footer">
+    @if (ticket().assigneeId) {
+      <span class="ticket__assignee" [attr.data-testid]="'ticket-assignee-' + ticket().id">
+        <mat-icon class="ticket__assignee-icon" svgIcon="person" />
+        {{ ticket().assigneeId }}
+      </span>
+    } @else {
+      <span class="ticket__assignee ticket__assignee--empty">Unassigned</span>
+    }
+  </footer>
+</article>
+
+<mat-menu #ticketMenu="matMenu">
+  <button
+    mat-menu-item
+    type="button"
+    [attr.data-testid]="'assign-ticket-' + ticket().id"
+    (click)="assign.emit(ticket())"
+  >
+    <mat-icon svgIcon="person" />
+    <span>Assign…</span>
+  </button>
+
+  @if (otherSwimlanes().length > 0) {
+    <button
+      mat-menu-item
+      type="button"
+      [matMenuTriggerFor]="moveMenu"
+      [attr.data-testid]="'move-ticket-menu-' + ticket().id"
+    >
+      <mat-icon svgIcon="swap_horiz" />
+      <span>Move to</span>
+    </button>
+  }
+</mat-menu>
+
+<mat-menu #moveMenu="matMenu">
+  @for (lane of otherSwimlanes(); track lane.id) {
+    <button
+      mat-menu-item
+      type="button"
+      [attr.data-testid]="'move-ticket-' + ticket().id + '-to-' + lane.id"
+      (click)="requestMove(lane.id)"
+    >
+      {{ lane.title }}
+    </button>
+  }
+</mat-menu>
