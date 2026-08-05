@@ -9,6 +9,8 @@ public interface TicketRepository extends ListCrudRepository<Ticket, Long> {
 
     List<Ticket> findByBoardIdOrderBySwimlaneIdAscPositionAsc(Long boardId);
 
+    List<Ticket> findBySwimlaneIdOrderByPositionAsc(Long swimlaneId);
+
     int countBySwimlaneId(Long swimlaneId);
 
 }

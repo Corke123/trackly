@@ -1,0 +1,44 @@
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  gap: 0.25rem;
+  background: var(--mat-sys-surface-container);
+  color: var(--mat-sys-on-surface);
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+}
+
+.header__title {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.header__board-name {
+  margin: 0;
+  font: var(--mat-sys-title-large);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.header__spacer {
+  flex: 1 1 auto;
+}
+
+.header__username {
+  margin-left: 0.5rem;
+}
+
+.header__menu-identity {
+  font: var(--mat-sys-body-small);
+  color: var(--mat-sys-on-surface-variant);
+}
+
+/* Below the toolbar's own breakpoint the username is the first thing worth dropping. */
+@media (max-width: 599px) {
+  .header__username {
+    display: none;
+  }
+}

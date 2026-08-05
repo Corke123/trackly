@@ -29,9 +29,11 @@ class GatewayConfigTest extends GatewayTestSupport {
             List<Route> routes = routeLocator.getRoutes().collectList().block();
 
             assertThat(routes).extracting(Route::getId)
-                    .containsExactly("board/boards/**", "board/tickets/**", "notification/activity/**", "frontend-dev-server");
+                    .containsExactly("board/boards/**", "board/tickets/**", "notification/activity/**",
+                            "identity/users/**", "frontend-dev-server");
             assertThat(routes).extracting(route -> route.getUri().toString())
-                    .containsExactly("http://localhost:8081", "http://localhost:8081", "http://localhost:8082", "http://localhost:4200");
+                    .containsExactly("http://localhost:8081", "http://localhost:8081", "http://localhost:8082",
+                            "http://localhost:9000", "http://localhost:4200");
         }
 
         @Test
@@ -61,7 +63,7 @@ class GatewayConfigTest extends GatewayTestSupport {
             List<Route> routes = routeLocator.getRoutes().collectList().block();
 
             assertThat(routes).extracting(Route::getId).containsExactly(
-                    "board/boards/**", "board/tickets/**", "notification/activity/**", "spa");
+                    "board/boards/**", "board/tickets/**", "notification/activity/**", "identity/users/**", "spa");
             assertThat(routes).extracting(route -> route.getUri().toString()).contains("forward:/");
         }
     }

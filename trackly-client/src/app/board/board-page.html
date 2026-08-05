@@ -1,0 +1,59 @@
+@if (loading()) {
+  <mat-progress-bar mode="indeterminate" aria-label="Loading the board" />
+}
+
+@if (loadError(); as error) {
+  <div class="board__error" role="alert" data-testid="board-error">
+    <p>{{ error }}</p>
+    <button matButton="filled" type="button" data-testid="board-retry" (click)="reload()">
+      Try again
+    </button>
+  </div>
+} @else if (hasBoard()) {
+  <div class="board" data-testid="board">
+    <div
+      class="board__lanes"
+      cdkDropList
+      cdkDropListOrientation="horizontal"
+      [cdkDropListData]="swimlanes()"
+      [cdkDropListDisabled]="!isAdmin()"
+      (cdkDropListDropped)="onSwimlaneDropped($event)"
+    >
+      @for (swimlane of swimlanes(); track swimlane.id; let index = $index) {
+        <app-swimlane-column
+          cdkDrag
+          [cdkDragDisabled]="!isAdmin()"
+          [swimlane]="swimlane"
+          [isAdmin]="isAdmin()"
+          [allSwimlanes]="swimlanes()"
+          [connectedListIds]="connectedListIds()"
+          [canMoveLeft]="index > 0"
+          [canMoveRight]="index < lastIndex()"
+          (addTicket)="addTicket($event)"
+          (assignTicket)="assignTicket($event)"
+          (moveTicket)="onTicketMoved($event)"
+          (deleteSwimlane)="deleteSwimlane($event)"
+          (moveSwimlaneLeft)="moveSwimlaneLeft($event)"
+          (moveSwimlaneRight)="moveSwimlaneRight($event)"
+        />
+      } @empty {
+        <p class="board__empty" data-testid="board-empty">
+          This board has no swimlanes yet.
+        </p>
+      }
+
+      @if (isAdmin()) {
+        <button
+          matButton="outlined"
+          type="button"
+          class="board__add-lane"
+          data-testid="add-swimlane"
+          (click)="addSwimlane()"
+        >
+          <mat-icon svgIcon="add" />
+          Add swimlane
+        </button>
+      }
+    </div>
+  </div>
+}

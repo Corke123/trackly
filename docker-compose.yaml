@@ -148,6 +148,7 @@ services:
       TRACKLY_CLIENT_SECRET: trackly-secret
       BOARD_SERVICE_URI: http://board-service:8081
       NOTIFICATION_SERVICE_URI: http://notification-service:8082
+      IDENTITY_SERVICE_URI: http://identity-service:9000
       TRACKLY_SERVE_SPA: "${TRACKLY_SERVE_SPA:-true}"
       FRONTEND_URI: http://host.docker.internal:4200
     healthcheck:

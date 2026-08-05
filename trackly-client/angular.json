@@ -25,6 +25,7 @@
               }
             ],
             "styles": [
+              "src/theme.scss",
               "src/styles.css"
             ]
           },
@@ -33,7 +34,7 @@
               "budgets": [
                 {
                   "type": "initial",
-                  "maximumWarning": "500kB",
+                  "maximumWarning": "750kB",
                   "maximumError": "1MB"
                 },
                 {

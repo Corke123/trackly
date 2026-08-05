@@ -9,6 +9,7 @@ import org.unibl.etf.pisio.boardservice.domain.event.TicketAssigned;
 import org.unibl.etf.pisio.boardservice.domain.event.TicketCreated;
 import org.unibl.etf.pisio.boardservice.domain.event.TicketMoved;
 import org.unibl.etf.pisio.boardservice.exception.BoardNotFoundException;
+import org.unibl.etf.pisio.boardservice.exception.SwimlaneNotEmptyException;
 import org.unibl.etf.pisio.boardservice.exception.SwimlaneNotOnBoardException;
 import org.unibl.etf.pisio.boardservice.exception.TicketNotFoundException;
 import org.unibl.etf.pisio.boardservice.outbox.DomainEventPublisher;
@@ -16,7 +17,9 @@ import org.unibl.etf.pisio.boardservice.repository.BoardRepository;
 import org.unibl.etf.pisio.boardservice.repository.TicketRepository;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.IntStream;
 
 @Service
 @Transactional
@@ -27,7 +30,8 @@ public class BoardService {
     private final DomainEventPublisher publisher;
 
 
-    public BoardService(BoardRepository boardRepository, TicketRepository ticketRepository, DomainEventPublisher publisher) {
+    public BoardService(BoardRepository boardRepository, TicketRepository ticketRepository,
+                        DomainEventPublisher publisher) {
         this.boardRepository = boardRepository;
         this.ticketRepository = ticketRepository;
         this.publisher = publisher;
@@ -35,6 +39,11 @@ public class BoardService {
 
     public Board createBoard(String name) {
         return boardRepository.save(new Board(name));
+    }
+
+    public Board renameBoard(Long boardId, String name) {
+        Board board = requireBoard(boardId);
+        return boardRepository.save(board.rename(name));
     }
 
     public Swimlane addSwimlane(Long boardId, String title) {
@@ -47,10 +56,35 @@ public class BoardService {
         return swimlanes.getLast();
     }
 
+    /**
+     * A swimlane that still holds tickets is never deleted — the tickets would be orphaned, and the
+     * board owner almost certainly meant to move them first.
+     */
+    public void deleteSwimlane(Long boardId, Long swimlaneId) {
+        Board board = requireBoard(boardId);
+
+        int ticketCount = ticketRepository.countBySwimlaneId(swimlaneId);
+        if (ticketCount > 0) {
+            throw new SwimlaneNotEmptyException(swimlaneId, ticketCount);
+        }
+
+        boardRepository.save(board.removeSwimlane(swimlaneId));
+    }
+
+    public Board reorderSwimlanes(Long boardId, List<Long> orderedSwimlaneIds) {
+        Board board = requireBoard(boardId);
+        Board reordered = board.reorderSwimlanes(orderedSwimlaneIds);
+
+        // Persist the order the board just validated, not the one that was asked for.
+        boardRepository.updateSwimlaneOrder(boardId, reordered.swimlanes().stream().map(Swimlane::id).toList());
+
+        return reordered;
+    }
+
     public Ticket createTicket(Long boardId, Long swimlaneId, String title, String description, String actorId) {
         Board board = requireBoard(boardId);
 
-        if (!board.hasSwimlane(swimlaneId)) {
+        if (board.hasNotSwimlane(swimlaneId)) {
             throw new SwimlaneNotOnBoardException(boardId, swimlaneId);
         }
 
@@ -61,21 +95,56 @@ public class BoardService {
         return ticket;
     }
 
+    /**
+     * Moves a ticket to {@code toPosition} within {@code toSwimlaneId} and renumbers the surrounding tickets
+     * around it, so the stored positions stay a dense 0…n-1 sequence per swimlane — which is what
+     * the board view relies on to render a stable order after a drag.
+     */
     public Ticket moveTicket(Long ticketId, Long toSwimlaneId, int toPosition, String actorId) {
         Ticket ticket = requireTicket(ticketId);
         Board board = requireBoard(ticket.boardId());
 
-        if (!board.hasSwimlane(toSwimlaneId)) {
+        if (board.hasNotSwimlane(toSwimlaneId)) {
             throw new SwimlaneNotOnBoardException(ticket.boardId(), toSwimlaneId);
         }
 
         Long from = ticket.swimlaneId();
 
-        Ticket movedTicket = ticket.moveTo(toSwimlaneId, toPosition);
-        movedTicket = ticketRepository.save(movedTicket);
+        List<Ticket> target = new ArrayList<>(ticketRepository.findBySwimlaneIdOrderByPositionAsc(toSwimlaneId));
+        target.removeIf(candidate -> candidate.id().equals(ticketId));
+
+        // A position past the end of the swimlane means "last", not a rejection.
+        int landedAt = Math.min(toPosition, target.size());
+        Ticket movedTicket = ticket.moveTo(toSwimlaneId, landedAt);
+        target.add(landedAt, movedTicket);
+
+        if (!from.equals(toSwimlaneId)) {
+            List<Ticket> source = ticketRepository.findBySwimlaneIdOrderByPositionAsc(from).stream()
+                    .filter(candidate -> !candidate.id().equals(ticketId))
+                    .toList();
+            ticketRepository.saveAll(renumbered(source, null));
+        }
+
+        ticketRepository.saveAll(renumbered(target, ticketId));
 
         publisher.publish(new TicketMoved(ticketId, movedTicket.boardId(), from, toSwimlaneId, actorId, Instant.now()));
         return movedTicket;
+    }
+
+    /**
+     * The tickets the new order actually changes. Every save is a statement of its own, so writing a
+     * whole swimlane back to move one ticket within it costs a row per ticket, while a drag usually
+     * shifts only the span between the old index and the new one.
+     *
+     * <p>{@code alwaysWriteId} names the ticket being moved: it has to be written even when it lands
+     * on the position number it already had, because its swimlane may be what changed.
+     */
+    private List<Ticket> renumbered(List<Ticket> ordered, Long alwaysWriteId) {
+        return IntStream.range(0, ordered.size())
+                .filter(index -> ordered.get(index).position() != index
+                        || ordered.get(index).id().equals(alwaysWriteId))
+                .mapToObj(index -> ordered.get(index).atPosition(index))
+                .toList();
     }
 
     public Ticket assignTicket(Long ticketId, String assigneeId, String actorId) {
@@ -86,6 +155,11 @@ public class BoardService {
 
         publisher.publish(new TicketAssigned(ticketId, assignedTicket.boardId(), assigneeId, actorId, Instant.now()));
         return savedTicket;
+    }
+
+    @Transactional(readOnly = true)
+    public List<Board> listBoards() {
+        return boardRepository.findAll();
     }
 
     @Transactional(readOnly = true)

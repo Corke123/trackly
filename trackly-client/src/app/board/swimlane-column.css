@@ -1,0 +1,79 @@
+:host {
+  display: block;
+  flex: 0 0 auto;
+  width: 18rem;
+  max-width: 85vw;
+}
+
+.lane {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  border-radius: var(--mat-sys-corner-large);
+  background: var(--mat-sys-surface-container);
+  border: 1px solid var(--mat-sys-outline-variant);
+  overflow: hidden;
+}
+
+.lane__header {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.5rem 0.5rem 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+}
+
+.lane__drag-handle {
+  cursor: grab;
+  margin-left: -0.5rem;
+}
+
+.lane__drag-handle:active {
+  cursor: grabbing;
+}
+
+.lane__title {
+  flex: 1 1 auto;
+  margin: 0;
+  font: var(--mat-sys-title-medium);
+  overflow-wrap: anywhere;
+}
+
+.lane__count {
+  flex: 0 0 auto;
+  min-width: 1.5rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: var(--mat-sys-corner-full);
+  background: var(--mat-sys-secondary-container);
+  color: var(--mat-sys-on-secondary-container);
+  font: var(--mat-sys-label-small);
+  text-align: center;
+}
+
+.lane__tickets {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  overflow-y: auto;
+  /* Grows into the rest of the lane so the whole column, not just the cards, accepts a drop —
+     including in a lane that holds nothing at all. */
+  flex: 1 1 auto;
+  min-height: 4rem;
+}
+
+.lane__empty {
+  margin: 0;
+  padding: 0.5rem 0;
+  font: var(--mat-sys-body-small);
+  color: var(--mat-sys-on-surface-variant);
+  text-align: center;
+}
+
+.lane__add {
+  margin: 0 0.75rem 0.75rem;
+}
+
+.cdk-drop-list-dragging .lane__empty {
+  visibility: hidden;
+}

@@ -1,0 +1,110 @@
+<section
+  class="lane"
+  [attr.data-testid]="'swimlane-' + swimlane().id"
+  [attr.aria-label]="swimlane().title + ' swimlane'"
+>
+  <header class="lane__header">
+    @if (isAdmin()) {
+      <button
+        matIconButton
+        type="button"
+        cdkDragHandle
+        class="lane__drag-handle"
+        [attr.data-testid]="'swimlane-handle-' + swimlane().id"
+        [attr.aria-label]="'Reorder ' + swimlane().title"
+        matTooltip="Drag to reorder"
+      >
+        <mat-icon svgIcon="drag_indicator" />
+      </button>
+    }
+
+    <h2 class="lane__title" [attr.data-testid]="'swimlane-title-' + swimlane().id">
+      {{ swimlane().title }}
+    </h2>
+
+    <span class="lane__count" [attr.data-testid]="'swimlane-count-' + swimlane().id">
+      {{ ticketCount() }}
+    </span>
+
+    @if (isAdmin()) {
+      <button
+        matIconButton
+        type="button"
+        [matMenuTriggerFor]="laneMenu"
+        [attr.data-testid]="'swimlane-menu-' + swimlane().id"
+        [attr.aria-label]="'Actions for ' + swimlane().title"
+      >
+        <mat-icon svgIcon="more_vert" />
+      </button>
+    }
+  </header>
+
+  <div
+    class="lane__tickets"
+    cdkDropList
+    [id]="listId()"
+    [cdkDropListData]="swimlane()"
+    [cdkDropListConnectedTo]="connectedListIds()"
+    (cdkDropListDropped)="onTicketDropped($event)"
+  >
+    @for (ticket of tickets(); track ticket.id) {
+      <app-ticket-card
+        cdkDrag
+        [cdkDragData]="ticket"
+        [ticket]="ticket"
+        [otherSwimlanes]="otherSwimlanes()"
+        (assign)="assignTicket.emit($event)"
+        (move)="onMoveRequested($event)"
+      />
+    } @empty {
+      <p class="lane__empty">No tickets yet.</p>
+    }
+  </div>
+
+  <button
+    matButton
+    type="button"
+    class="lane__add"
+    [attr.data-testid]="'add-ticket-' + swimlane().id"
+    (click)="addTicket.emit(swimlane())"
+  >
+    <mat-icon svgIcon="add" />
+    Add ticket
+  </button>
+</section>
+
+<mat-menu #laneMenu="matMenu">
+  <button
+    mat-menu-item
+    type="button"
+    [disabled]="!canMoveLeft()"
+    [attr.data-testid]="'swimlane-move-left-' + swimlane().id"
+    (click)="moveSwimlaneLeft.emit(swimlane())"
+  >
+    <mat-icon svgIcon="chevron_left" />
+    <span>Move left</span>
+  </button>
+
+  <button
+    mat-menu-item
+    type="button"
+    [disabled]="!canMoveRight()"
+    [attr.data-testid]="'swimlane-move-right-' + swimlane().id"
+    (click)="moveSwimlaneRight.emit(swimlane())"
+  >
+    <mat-icon svgIcon="chevron_right" />
+    <span>Move right</span>
+  </button>
+
+  <button
+    mat-menu-item
+    type="button"
+    [disabled]="!canDelete()"
+    [matTooltip]="deleteTooltip()"
+    [attr.data-testid]="'delete-swimlane-' + swimlane().id"
+    (click)="deleteSwimlane.emit(swimlane())"
+  >
+    <mat-icon svgIcon="delete" />
+    <span>Delete swimlane</span>
+  </button>
+</mat-menu>

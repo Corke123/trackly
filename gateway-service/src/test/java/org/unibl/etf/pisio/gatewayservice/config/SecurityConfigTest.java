@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webtestclient.autoconfigure.AutoConfigureWebTestClient;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
 import org.springframework.mock.web.server.MockServerWebExchange;
 import org.springframework.security.oauth2.client.ReactiveOAuth2AuthorizedClientManager;
@@ -15,6 +16,7 @@ import org.springframework.web.server.WebFilter;
 import org.unibl.etf.pisio.gatewayservice.GatewayTestSupport;
 import reactor.test.StepVerifier;
 
+import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.csrf;
 import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.mockOidcLogin;
@@ -41,13 +43,24 @@ class SecurityConfigTest extends GatewayTestSupport {
                 .expectHeader().valueEquals(HttpHeaders.LOCATION, "/oauth2/authorization/trackly");
     }
 
+    /**
+     * A redirect here would be followed by the SPA's fetch and land it on the authorization server's
+     * login page instead of its data; a 401 is something the client can act on.
+     */
     @Test
-    @DisplayName("Given no session, when an api path is requested, then it is not proxied but sent to log in first")
-    void unauthenticatedApiCallStartsTheLogin() {
+    @DisplayName("Given no session, when an api path is requested, then it is refused with a 401 rather than redirected")
+    void unauthenticatedApiCallIsRefused() {
         webTestClient.get().uri("/api/boards/1")
                 .exchange()
-                .expectStatus().isFound()
-                .expectHeader().valueEquals(HttpHeaders.LOCATION, "/oauth2/authorization/trackly");
+                .expectStatus().isUnauthorized();
+    }
+
+    @Test
+    @DisplayName("Given no session, when the current user is requested, then it is refused with a 401")
+    void unauthenticatedCurrentUserCallIsRefused() {
+        webTestClient.get().uri("/api/me")
+                .exchange()
+                .expectStatus().isUnauthorized();
     }
 
     @Test
@@ -112,14 +125,16 @@ class SecurityConfigTest extends GatewayTestSupport {
     @Test
     @DisplayName("Given the CSRF token from the cookie, when the SPA echoes it back in the header, then the request is accepted")
     void acceptsTheCsrfTokenTheWayTheSpaSendsIt() {
-        String csrfToken = webTestClient.mutateWith(mockOidcLogin())
+        ResponseCookie csrfCookie = webTestClient.mutateWith(mockOidcLogin())
                 .get().uri("/actuator/info")
                 .exchange()
                 .expectCookie().exists("XSRF-TOKEN")
                 .returnResult(Void.class)
                 .getResponseCookies()
-                .getFirst("XSRF-TOKEN")
-                .getValue();
+                .getFirst("XSRF-TOKEN");
+
+        // The exists() assertion above has already failed the test if the cookie was not published.
+        String csrfToken = requireNonNull(csrfCookie).getValue();
 
         webTestClient.mutateWith(mockOidcLogin())
                 .post().uri("/logout")

@@ -43,3 +43,10 @@ _Avoid_: message, signal.
 An authenticated principal. Owned by identity-service; every other service references a
 user by its id (the JWT `sub`) and never stores credentials.
 _Avoid_: account, member, principal.
+
+**Admin**:
+A user who may also shape the board itself — rename it, and add, reorder or delete its
+swimlanes. Carried as the `ROLE_ADMIN` role on the user's token and enforced in
+board-service, not merely reflected in the client. Every user, admin or not, may create,
+assign and move tickets.
+_Avoid_: owner, moderator, superuser.

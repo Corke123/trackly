@@ -18,6 +18,18 @@ stages); each swimlane holds **Tickets** that users create, assign, and drag bet
 lanes. Every board change emits a domain event; a separate service consumes those events
 and builds an **Activity** feed.
 
+There are two kinds of **User**, told apart by the `roles` claim in their token:
+
+|                                   | Admin (`ROLE_ADMIN`)                        | User (`ROLE_USER`) |
+|-----------------------------------|---------------------------------------------|--------------------|
+| Rename the board                  | ✅                                          | —                  |
+| Add, reorder and delete swimlanes | ✅ (a lane still holding tickets cannot go) | —                  |
+| Create, assign and move tickets   | ✅                                          | ✅                 |
+
+The distinction is enforced in board-service with `@PreAuthorize` on the admin-only endpoints, not
+merely hidden in the client: the SPA renders the controls a role can actually use, and the service
+answers 403 to the rest either way.
+
 ## Architecture at a glance
 
 ```
@@ -51,9 +63,9 @@ See [`docs/adr/`](docs/adr) for the architectural decisions and their rationale,
 
 ## Version matrix
 
-| Java | Spring Boot | Spring Cloud | Angular | Node |
-|------|-------------|--------------|---------|------|
-| 25 | 4.1.0 | 2025.1.2 (Oakwood) | 22.0 | 24 |
+| Java | Spring Boot | Spring Cloud       | Angular | Node |
+|------|-------------|--------------------|---------|------|
+| 25   | 4.1.0       | 2025.1.2 (Oakwood) | 22.0    | 24   |
 
 ## Repository layout
 
@@ -65,7 +77,7 @@ trackly/
 ├── identity-service/      # OAuth2 authorization server
 ├── board-service/         # core domain
 ├── notification-service/  # event consumer + activity feed
-├── trackly-client/        # Angular SPA
+├── trackly-client/        # Angular SPA (src/, e2e/ stubbed journeys, e2e-stack/ full-stack ones)
 ├── infra/                 # Terraform (modules + environments/{staging,prod})
 ├── docs/adr/              # architecture decision records
 ├── CONTEXT.md             # domain glossary
@@ -81,8 +93,17 @@ docker compose up --build
 ```
 
 Open <http://localhost:8080>. The gateway serves the SPA and the API on one origin, so the BFF session cookie is
-first-party (mirroring production). You'll be redirected to the identity login page — sign in with the demo credentials
-**`demo` / `demo`**, then approve the consent screen.
+first-party (mirroring production). You'll be redirected to the identity login page — sign in, then approve the consent
+screen. Three accounts are seeded, and which one you use decides what the board lets you do:
+
+| Username | Password | Role         |
+|----------|----------|--------------|
+| `admin`  | `admin`  | `ROLE_ADMIN` |
+| `user`   | `user`   | `ROLE_USER`  |
+| `demo`   | `demo`   | `ROLE_USER`  |
+
+The board itself is seeded too (*Trackly Board*, with *To Do* / *In Progress* / *Done*), so there is something to work
+with on a fresh database.
 
 To work on the front-end with live reload, have the gateway proxy the dev server instead of serving its bundled copy —
 the origin, and therefore the session cookie, stays the same either way (ADR 0006):
@@ -114,8 +135,15 @@ cd board-service && ./mvnw package
 # Full build — adds the Testcontainers integration tests and the merged coverage gate (needs Docker)
 cd board-service && ./mvnw verify
 
-# Frontend
-cd trackly-client && npm run lint && npm run build
+# Frontend commit stage — unit tests behind the coverage gate, then the production bundle
+cd trackly-client && npm ci && npm run test:ci && npm run build
+
+# Frontend end-to-end journeys (Playwright drives the built SPA against a stubbed gateway API)
+cd trackly-client && npx playwright install chromium && npm run e2e
+
+# The same journeys against the whole running stack — needs `docker compose up` first, and writes
+# to whichever board it finds, so point it at a throwaway database
+cd trackly-client && npm run e2e:stack
 ```
 
 Use `./mvnw` rather than `mvn`: the wrapper pins the Maven version, so a local build, the CI build and the Docker build
@@ -140,6 +168,19 @@ verification runs behind it.
 `gateway-service` goes through the same three stages as every other service, with one difference: its image bundles the
 SPA (ADR 0006), so a change under `trackly-client/**` triggers the gateway's build, and the gateway's image is the only
 one built from the repository root rather than its own directory.
+
+`trackly-client` is not a Maven service, so it has a pipeline of its own —
+[`client-ci.yaml`](.github/workflows/client-ci.yaml) — staged on the same principle:
+
+| Stage             | Runs                                                                             | Gate             | Typical |
+|-------------------|----------------------------------------------------------------------------------|------------------|---------|
+| Commit stage      | `npm run test:ci` — Vitest unit tests, coverage gate (≥ 85%), then `ng build`     | blocks the merge | ~2 min  |
+| End-to-end stage  | `npm run e2e` — Playwright journeys for both roles against a stubbed gateway API  | blocks the merge | ~3 min  |
+
+The journeys stub the gateway's API rather than starting the stack: what they are testing is the client's own behaviour
+(who may do what, drag and drop, optimistic moves rolling back), and the services' behaviour is already gated by their
+Testcontainers tests. A full-stack smoke test belongs against a deployed staging environment, so it arrives with
+continuous delivery.
 
 **`CI required`** is the single aggregating status check to require in branch protection — the matrix and
 reusable-workflow job names change as services are added, that one does not.
@@ -202,3 +243,11 @@ All four services compile against Java 25 / Spring Boot 4.1 and the Angular app 
    `demo` signs in at identity-service with PKCE, and `/api/**` reaches the resource servers with a relayed Bearer token
    while the browser holds only a session cookie. Steps that require an Azure subscription or the live GitHub repository
    (the OIDC dance, the actual deploys) are documented above and must be run in your environment.
+
+The client's own suites run green: 105 Vitest unit tests over the store, services and components, and 18 Playwright
+journeys covering both roles — including swimlane and ticket drag-and-drop, and a rejected move rolling back. The board,
+gateway and identity services pass `./mvnw verify` with their coverage gates intact.
+
+The two roles have also been driven against the Compose stack (`npm run e2e:stack`): `admin` signs in with PKCE, renames
+the board, adds a swimlane and creates an assigned ticket, all of which survive a reload; `user` is offered none of those
+controls, and reaching for `PATCH /api/boards/1` with that session comes back **403** from board-service.
