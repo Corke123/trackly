@@ -48,28 +48,32 @@ class BoardEventSubscriptionIntegrationTest {
     @Test
     @DisplayName("Given a TicketMoved event on the topic, when the subscription reads it, then the activity is recorded with a move summary")
     void readsTicketMovedEvent() {
-        publisher.publish("sub-2", new TicketMoved(101L, 2L, 10L, 20L, "actor-2", OCCURRED_AT));
+        publisher.publish("sub-2", new TicketMoved(101L, 2L, 10L, 20L, "Fix login", "Doing", "assignee-9", "actor-2", OCCURRED_AT));
 
         Activity activity = awaitActivity(activityRepository, 2L, TicketMoved.TYPE);
 
         assertThat(activity.eventId()).isEqualTo("sub-2");
         assertThat(activity.boardId()).isEqualTo(2L);
-        assertThat(activity.summary()).isEqualTo("Ticket #101 moved to swimlane 20");
+        assertThat(activity.summary()).isEqualTo("Ticket \"Fix login\" moved to Doing");
         assertThat(activity.actorId()).isEqualTo("actor-2");
+        assertThat(activity.recipientId()).isEqualTo("assignee-9");
+        assertThat(activity.recipientMessage()).isEqualTo("actor-2 moved your ticket \"Fix login\" to Doing");
         assertThat(activity.occurredAt()).isEqualTo(OCCURRED_AT);
     }
 
     @Test
     @DisplayName("Given a TicketAssigned event on the topic, when the subscription reads it, then the activity is recorded with an assignment summary")
     void readsTicketAssignedEvent() {
-        publisher.publish("sub-3", new TicketAssigned(102L, 3L, "assignee-9", "actor-3", OCCURRED_AT));
+        publisher.publish("sub-3", new TicketAssigned(102L, 3L, "Fix login", "assignee-9", "actor-3", OCCURRED_AT));
 
         Activity activity = awaitActivity(activityRepository, 3L, TicketAssigned.TYPE);
 
         assertThat(activity.eventId()).isEqualTo("sub-3");
         assertThat(activity.boardId()).isEqualTo(3L);
-        assertThat(activity.summary()).isEqualTo("Ticket #102 assigned to assignee-9");
+        assertThat(activity.summary()).isEqualTo("Ticket \"Fix login\" assigned to assignee-9");
         assertThat(activity.actorId()).isEqualTo("actor-3");
+        assertThat(activity.recipientId()).isEqualTo("assignee-9");
+        assertThat(activity.recipientMessage()).isEqualTo("actor-3 assigned \"Fix login\" to you");
         assertThat(activity.occurredAt()).isEqualTo(OCCURRED_AT);
     }
 }

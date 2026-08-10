@@ -14,4 +14,6 @@ public interface ActivityRepository extends ListCrudRepository<Activity, Long> {
 
     List<Activity> findByOrderByOccurredAtDesc(Limit limit);
 
+    List<Activity> findByRecipientIdAndIdGreaterThanOrderByIdAsc(String recipientId, Long id, Limit limit);
+
 }

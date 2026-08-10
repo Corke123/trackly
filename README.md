@@ -30,6 +30,12 @@ The distinction is enforced in board-service with `@PreAuthorize` on the admin-o
 merely hidden in the client: the SPA renders the controls a role can actually use, and the service
 answers 403 to the rest either way.
 
+Either kind of user is told, while they are on the board, when somebody **assigns them a ticket** or
+**moves a ticket assigned to them** — a snackbar in the top-right corner. The board event travels
+board-service → Service Bus → notification-service, which addresses it to a single recipient and
+pushes it down that user's server-sent activity stream (ADR 0011). You are never notified of your
+own doing.
+
 ## Architecture at a glance
 
 ```
@@ -38,9 +44,10 @@ Browser ─► gateway-service  (Spring Cloud Gateway — BFF, oauth2Login + Tok
               │
               ├─► identity-service      (Spring Authorization Server — issues JWTs)
               ├─► board-service         (boards / swimlanes / tickets + outbox)
-              └─► notification-service  (activity feed)
-                    ▲
-        board ──► Service Bus topic (board-events) ──► notification
+              └─► notification-service  (activity feed + activity stream)
+
+        board ──────► Service Bus topic (board-events) ──────► notification
+        notification ──► SSE /api/activity/stream ──► gateway ──► Browser
 ```
 
 The browser holds nothing but an opaque session cookie; the gateway keeps the tokens and relays them as Bearer tokens
@@ -76,7 +83,7 @@ trackly/
 ├── gateway-service/       # BFF gateway
 ├── identity-service/      # OAuth2 authorization server
 ├── board-service/         # core domain
-├── notification-service/  # event consumer + activity feed
+├── notification-service/  # event consumer + activity feed + activity stream
 ├── trackly-client/        # Angular SPA (src/, e2e/ stubbed journeys, e2e-stack/ full-stack ones)
 ├── infra/                 # Terraform (modules + environments/{staging,prod})
 ├── docs/adr/              # architecture decision records
@@ -244,9 +251,10 @@ All four services compile against Java 25 / Spring Boot 4.1 and the Angular app 
    while the browser holds only a session cookie. Steps that require an Azure subscription or the live GitHub repository
    (the OIDC dance, the actual deploys) are documented above and must be run in your environment.
 
-The client's own suites run green: 105 Vitest unit tests over the store, services and components, and 18 Playwright
-journeys covering both roles — including swimlane and ticket drag-and-drop, and a rejected move rolling back. The board,
-gateway and identity services pass `./mvnw verify` with their coverage gates intact.
+The client's own suites run green: 118 Vitest unit tests over the store, services and components, and 22 Playwright
+journeys covering both roles — including swimlane and ticket drag-and-drop, a rejected move rolling back, and a live
+notification arriving as a snackbar. The board, notification, gateway and identity services pass `./mvnw verify` with
+their coverage gates intact.
 
 The two roles have also been driven against the Compose stack (`npm run e2e:stack`): `admin` signs in with PKCE, renames
 the board, adds a swimlane and creates an assigned ticket, all of which survive a reload; `user` is offered none of those

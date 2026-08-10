@@ -61,3 +61,10 @@ body {
 .cdk-drop-list-dragging .cdk-drag:not(.cdk-drag-placeholder) {
   transition: transform 200ms cubic-bezier(0, 0, 0.2, 1);
 }
+
+.app-announcement {
+  --mat-snack-bar-container-color: var(--mat-sys-inverse-surface);
+
+  margin-top: 1rem;
+  max-width: 24rem;
+}

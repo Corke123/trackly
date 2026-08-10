@@ -86,6 +86,9 @@ class TicketControllerIntegrationTest {
         assertThat(payload.get("ticketId").asLong()).isEqualTo(ticketId);
         assertThat(payload.get("fromSwimlaneId").asLong()).isEqualTo(fromSwimlaneId);
         assertThat(payload.get("toSwimlaneId").asLong()).isEqualTo(toSwimlaneId);
+        assertThat(payload.get("title").asText()).isEqualTo("Write tests");
+        assertThat(payload.get("toSwimlaneTitle").asText()).isEqualTo("Doing");
+        assertThat(payload.get("assigneeId").isNull()).isTrue();
         assertThat(payload.get("actorId").asText()).isEqualTo("admin");
     }
 
@@ -114,6 +117,7 @@ class TicketControllerIntegrationTest {
         ServiceBusReceivedMessage event = awaitEvent(eventReceiver, "TicketAssigned", ticketId);
         JsonNode payload = objectMapper.readTree(event.getBody().toString());
         assertThat(payload.get("ticketId").asLong()).isEqualTo(ticketId);
+        assertThat(payload.get("title").asText()).isEqualTo("Write tests");
         assertThat(payload.get("assigneeId").asText()).isEqualTo("user-1");
         assertThat(payload.get("actorId").asText()).isEqualTo("admin");
     }

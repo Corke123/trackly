@@ -78,6 +78,7 @@ class ActivityControllerTest {
     }
 
     private static Activity activity(Long id, Long boardId, String type, String summary, Instant occurredAt) {
-        return new Activity(id, "event-" + id, boardId, type, summary, "actor-1", occurredAt, occurredAt.plusSeconds(1));
+        return new Activity(id, "event-" + id, boardId, type, summary, "actor-1", null, null,
+                occurredAt, occurredAt.plusSeconds(1));
     }
 }

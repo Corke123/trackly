@@ -33,6 +33,15 @@ export interface User {
   readonly username: string;
 }
 
+export interface ActivityNotification {
+  readonly id: number;
+  readonly boardId: number;
+  readonly type: string;
+  readonly message: string;
+  readonly actorId: string;
+  readonly occurredAt: string;
+}
+
 /** Who the gateway says is signed in, and what they are allowed to do. */
 export interface CurrentUser {
   readonly username: string;

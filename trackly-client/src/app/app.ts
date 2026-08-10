@@ -1,10 +1,13 @@
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { RouterOutlet } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { TextPromptData, TextPromptDialog } from './board/dialogs/text-prompt.dialog';
+import { ActivityStreamService } from './core/activity-stream.service';
 import { AuthService } from './core/auth.service';
 import { BoardStore } from './core/board.store';
+import { NotificationService } from './core/notification.service';
 import { Header } from './shell/header';
 
 @Component({
@@ -18,11 +21,18 @@ export class App {
   private readonly store = inject(BoardStore);
   private readonly auth = inject(AuthService);
   private readonly dialog = inject(MatDialog);
+  private readonly activityStream = inject(ActivityStreamService);
+  private readonly notifications = inject(NotificationService);
 
   protected readonly boardName = this.store.boardName;
   protected readonly isAdmin = this.auth.isAdmin;
 
   constructor() {
+    this.activityStream.notifications
+      .pipe(takeUntilDestroyed())
+      .subscribe((notification) => this.notifications.announce(notification.message));
+    this.activityStream.connect();
+
     void this.start();
   }
 

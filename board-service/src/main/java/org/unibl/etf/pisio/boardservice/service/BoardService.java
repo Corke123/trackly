@@ -133,7 +133,9 @@ public class BoardService {
 
         ticketRepository.saveAll(renumbered(target, ticketId));
 
-        publisher.publish(new TicketMoved(ticketId, movedTicket.boardId(), from, toSwimlaneId, actorId, Instant.now()));
+        publisher.publish(new TicketMoved(ticketId, movedTicket.boardId(), from, toSwimlaneId,
+                movedTicket.title(), board.swimlaneTitle(toSwimlaneId), movedTicket.assigneeId(),
+                actorId, Instant.now()));
         return movedTicket;
     }
 
@@ -159,7 +161,8 @@ public class BoardService {
         Ticket assignedTicket = ticket.assignTo(assigneeId);
         Ticket savedTicket = ticketRepository.save(assignedTicket);
 
-        publisher.publish(new TicketAssigned(ticketId, assignedTicket.boardId(), assigneeId, actorId, Instant.now()));
+        publisher.publish(new TicketAssigned(ticketId, assignedTicket.boardId(), assignedTicket.title(),
+                assigneeId, actorId, Instant.now()));
         return savedTicket;
     }
 
