@@ -289,8 +289,28 @@ class BoardServiceTest {
                 new Ticket(100L, 1L, 20L, "Moved", "Desc", null, 0, null),
                 targetSibling.atPosition(1)
         ));
-        verify(publisher).publish(new TicketMoved(100L, 1L, 10L, 20L, "actor-1", fixedNow));
+        verify(publisher).publish(new TicketMoved(100L, 1L, 10L, 20L, "Moved", "Doing", null, "actor-1", fixedNow));
         assertThat(result).isEqualTo(new Ticket(100L, 1L, 20L, "Moved", "Desc", null, 0, null));
+    }
+
+    @Test
+    @DisplayName("Given a moved ticket that has an assignee, when moveTicket is called, then the event names the assignee and the swimlane it landed in")
+    void moveTicketCarriesAssigneeAndSwimlaneTitle() {
+        Instant fixedNow = Instant.parse("2026-07-25T10:00:00Z");
+        Board board = new Board(1L, "Board", List.of(new Swimlane(10L, "To Do"), new Swimlane(20L, "Doing")));
+        Ticket ticket = new Ticket(100L, 1L, 10L, "Fix login", "Desc", "user-2", 0, null);
+        when(ticketRepository.findById(100L)).thenReturn(Optional.of(ticket));
+        when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
+        when(ticketRepository.findBySwimlaneIdOrderByPositionAsc(10L)).thenReturn(List.of(ticket));
+        when(ticketRepository.findBySwimlaneIdOrderByPositionAsc(20L)).thenReturn(List.of());
+        when(ticketRepository.saveAll(anyList())).thenAnswer(invocation -> List.copyOf(invocation.getArgument(0)));
+
+        try (MockedStatic<Instant> instant = mockStatic(Instant.class, CALLS_REAL_METHODS)) {
+            instant.when(Instant::now).thenReturn(fixedNow);
+            boardService.moveTicket(100L, 20L, 0, "actor-1");
+        }
+
+        verify(publisher).publish(new TicketMoved(100L, 1L, 10L, 20L, "Fix login", "Doing", "user-2", "actor-1", fixedNow));
     }
 
     @Test
@@ -406,7 +426,7 @@ class BoardServiceTest {
             Ticket result = boardService.assignTicket(100L, "user-2", "actor-1");
 
             verify(ticketRepository).save(new Ticket(100L, 1L, 10L, "Title", "Desc", "user-2", 0, null));
-            verify(publisher).publish(new TicketAssigned(100L, 1L, "user-2", "actor-1", fixedNow));
+            verify(publisher).publish(new TicketAssigned(100L, 1L, "Title", "user-2", "actor-1", fixedNow));
             assertThat(result).isEqualTo(assignedTicket);
         }
 

@@ -2,13 +2,16 @@ import { ANIMATION_MODULE_TYPE, provideZonelessChangeDetection, signal } from '@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MatDialog } from '@angular/material/dialog';
 import { provideRouter } from '@angular/router';
-import { of } from 'rxjs';
+import { Subject, of } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { click, query } from '../testing/dom';
 import { App } from './app';
+import { ActivityStreamService } from './core/activity-stream.service';
 import { AuthService } from './core/auth.service';
+import { ActivityNotification } from './core/board.models';
 import { BoardStore } from './core/board.store';
 import { provideTracklyIcons } from './core/icons';
+import { NotificationService } from './core/notification.service';
 import { ThemeService } from './core/theme.service';
 
 describe('App', () => {
@@ -17,6 +20,9 @@ describe('App', () => {
   let loadUser: ReturnType<typeof vi.fn>;
   let isAdmin: ReturnType<typeof signal<boolean>>;
   let dialogResult: string | undefined;
+  let notifications: Subject<ActivityNotification>;
+  let connect: ReturnType<typeof vi.fn>;
+  let announce: ReturnType<typeof vi.fn>;
 
   async function build(): Promise<ComponentFixture<App>> {
     await TestBed.configureTestingModule({
@@ -39,6 +45,14 @@ describe('App', () => {
           useValue: { resolved: signal<'light' | 'dark'>('light'), toggle: vi.fn() },
         },
         { provide: MatDialog, useValue: { open: () => ({ afterClosed: () => of(dialogResult) }) } },
+        {
+          provide: ActivityStreamService,
+          useValue: { notifications, connect, disconnect: vi.fn() },
+        },
+        {
+          provide: NotificationService,
+          useValue: { announce, notify: vi.fn(), reportError: vi.fn() },
+        },
       ],
     }).compileComponents();
 
@@ -53,6 +67,9 @@ describe('App', () => {
     loadUser = vi.fn().mockResolvedValue(undefined);
     isAdmin = signal(true);
     dialogResult = undefined;
+    notifications = new Subject<ActivityNotification>();
+    connect = vi.fn();
+    announce = vi.fn();
   });
 
   it('asks for the current user and the board together rather than in a chain', async () => {
@@ -102,4 +119,38 @@ describe('App', () => {
 
     expect(query(fixture, 'rename-board')).toBeNull();
   });
+
+  it('opens the activity stream as the shell starts', async () => {
+    await build();
+
+    expect(connect).toHaveBeenCalled();
+  });
+
+  it('announces board news addressed to the signed-in user', async () => {
+    await build();
+
+    notifications.next(activity('admin moved your ticket "Fix login" to Doing'));
+
+    expect(announce).toHaveBeenCalledWith('admin moved your ticket "Fix login" to Doing');
+  });
+
+  it('stops announcing once the shell is destroyed', async () => {
+    const fixture = await build();
+    fixture.destroy();
+
+    notifications.next(activity('admin assigned "Fix login" to you'));
+
+    expect(announce).not.toHaveBeenCalled();
+  });
 });
+
+function activity(message: string): ActivityNotification {
+  return {
+    id: 1,
+    boardId: 1,
+    type: 'TicketMoved',
+    message,
+    actorId: 'admin',
+    occurredAt: '2026-07-25T10:00:00Z',
+  };
+}

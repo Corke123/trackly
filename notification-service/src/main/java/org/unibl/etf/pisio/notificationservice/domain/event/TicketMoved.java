@@ -7,6 +7,9 @@ public record TicketMoved(
         Long boardId,
         Long fromSwimlaneId,
         Long toSwimlaneId,
+        String title,
+        String toSwimlaneTitle,
+        String assigneeId,
         String actorId,
         Instant occurredAt
 ) implements BoardEvent {

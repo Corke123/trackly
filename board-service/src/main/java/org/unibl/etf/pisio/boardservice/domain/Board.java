@@ -6,10 +6,7 @@ import org.springframework.data.relational.core.mapping.Table;
 import org.unibl.etf.pisio.boardservice.exception.IncompleteSwimlaneOrderException;
 import org.unibl.etf.pisio.boardservice.exception.SwimlaneNotOnBoardException;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -66,6 +63,15 @@ public record Board(
                 .toList();
 
         return new Board(this.id, this.name, reordered);
+    }
+
+    public String swimlaneTitle(Long swimlaneId) {
+        return swimlanes.stream()
+                .filter(swimlane -> Objects.nonNull(swimlane.id()))
+                .filter(swimlane -> swimlane.id().equals(swimlaneId))
+                .map(Swimlane::title)
+                .findFirst()
+                .orElseThrow(() -> new SwimlaneNotOnBoardException(this.id, swimlaneId));
     }
 
     public boolean hasNotSwimlane(Long swimlaneId) {

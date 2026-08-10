@@ -123,7 +123,35 @@ export class FakeBoard {
   }
 }
 
-export async function installBoardApi(page: Page, board: FakeBoard): Promise<void> {
+export class FakeActivityStream {
+  private queued: string[] = [];
+  private nextId = 1;
+
+  push(message: string, type = 'TicketAssigned'): void {
+    const id = this.nextId++;
+    const notification = {
+      id,
+      boardId: 1,
+      type,
+      message,
+      actorId: 'admin',
+      occurredAt: new Date().toISOString(),
+    };
+    this.queued.push(`id: ${id}\nevent: activity\ndata: ${JSON.stringify(notification)}\n\n`);
+  }
+
+  drain(): string {
+    const body = ['retry: 300\n\n', ...this.queued].join('');
+    this.queued = [];
+    return body;
+  }
+}
+
+export async function installBoardApi(
+  page: Page,
+  board: FakeBoard,
+  activity: FakeActivityStream,
+): Promise<void> {
   const json = (route: Route, body: unknown, status = 200) =>
     route.fulfill({ status, contentType: 'application/json', json: body as object });
 
@@ -141,6 +169,14 @@ export async function installBoardApi(page: Page, board: FakeBoard): Promise<voi
     const path = url.pathname;
     const method = request.method();
     const body = request.postData() ? JSON.parse(request.postData() as string) : {};
+
+    if (path === '/api/activity/stream') {
+      return route.fulfill({
+        status: 200,
+        headers: { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' },
+        body: activity.drain(),
+      });
+    }
 
     if (path === '/api/me') {
       return json(route, {
@@ -234,17 +270,21 @@ interface TracklyFixtures {
   adminBoard: FakeBoard;
   /** Signed in as `demo`, who may only work with tickets. */
   userBoard: FakeBoard;
+  activityStream: FakeActivityStream;
 }
 
 export const test = base.extend<TracklyFixtures>({
-  adminBoard: async ({ page }, use) => {
+  activityStream: async ({}, use) => {
+    await use(new FakeActivityStream());
+  },
+  adminBoard: async ({ page, activityStream }, use) => {
     const board = new FakeBoard(true);
-    await installBoardApi(page, board);
+    await installBoardApi(page, board, activityStream);
     await use(board);
   },
-  userBoard: async ({ page }, use) => {
+  userBoard: async ({ page, activityStream }, use) => {
     const board = new FakeBoard(false);
-    await installBoardApi(page, board);
+    await installBoardApi(page, board, activityStream);
     await use(board);
   },
 });

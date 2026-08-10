@@ -32,6 +32,17 @@ An immutable record describing something that happened on the board (a ticket wa
 created, moved, or assigned), derived from a board domain event. Displayed as a feed.
 _Avoid_: notification, log, event log.
 
+**Recipient**:
+The single user an Activity concerns personally — the assignee a ticket gained, or the
+assignee of a ticket somebody else moved. Most activities have none, and an Activity is
+never addressed to the user who caused it.
+_Avoid_: target, subscriber, watcher.
+
+**Activity stream**:
+The live channel that delivers a user the Activities addressed to them, as they are
+recorded. One stream per signed-in user; a user only ever receives their own.
+_Avoid_: feed (that is the Activity list), socket, channel.
+
 ## Cross-cutting
 
 **Domain event**:

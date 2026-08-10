@@ -17,6 +17,10 @@ server:
   port: ${SERVER_PORT:8082}
 
 trackly:
+  activity-stream:
+    timeout: ${ACTIVITY_STREAM_TIMEOUT:30m}
+    replay-limit: ${ACTIVITY_STREAM_REPLAY_LIMIT:20}
+    heartbeat-delay-ms: ${ACTIVITY_STREAM_HEARTBEAT_DELAY_MS:25000}
   servicebus:
     connection-string: ${SERVICEBUS_CONNECTION_STRING:}
     enabled: ${SERVICEBUS_ENABLED:true}

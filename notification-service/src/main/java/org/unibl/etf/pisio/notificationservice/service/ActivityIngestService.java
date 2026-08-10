@@ -2,6 +2,7 @@ package org.unibl.etf.pisio.notificationservice.service;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.unibl.etf.pisio.notificationservice.domain.Activity;
@@ -12,6 +13,8 @@ import org.unibl.etf.pisio.notificationservice.domain.event.TicketMoved;
 import org.unibl.etf.pisio.notificationservice.repository.ActivityRepository;
 import tools.jackson.databind.ObjectMapper;
 
+import java.util.Objects;
+
 @Service
 public class ActivityIngestService {
 
@@ -19,10 +22,13 @@ public class ActivityIngestService {
 
     private final ActivityRepository activities;
     private final ObjectMapper objectMapper;
+    private final ApplicationEventPublisher events;
 
-    public ActivityIngestService(ActivityRepository activities, ObjectMapper objectMapper) {
+    public ActivityIngestService(ActivityRepository activities, ObjectMapper objectMapper,
+                                 ApplicationEventPublisher events) {
         this.activities = activities;
         this.objectMapper = objectMapper;
+        this.events = events;
     }
 
     @Transactional
@@ -34,9 +40,22 @@ public class ActivityIngestService {
 
         try {
             BoardEvent event = deserializeEvent(eventType, payload);
-            String summary = summarize(event);
+            Address address = addressOf(event);
 
-            activities.save(new Activity(eventId, event.boardId(), eventType, summary, event.actorId(), event.occurredAt()));
+            Activity saved = activities.save(new Activity(
+                    eventId,
+                    event.boardId(),
+                    eventType,
+                    summarize(event),
+                    event.actorId(),
+                    address.recipientId(),
+                    address.message(),
+                    event.occurredAt()
+            ));
+
+            if (saved.isAddressed()) {
+                events.publishEvent(new ActivityRecorded(saved));
+            }
 
             log.info("Recorded activity {} for board {}", eventType, event.boardId());
         } catch (Exception e) {
@@ -53,11 +72,43 @@ public class ActivityIngestService {
         };
     }
 
+    private record Address(String recipientId, String message) {
+
+        static final Address NOBODY = new Address(null, null);
+    }
+
+    private Address addressOf(BoardEvent event) {
+        return switch (event) {
+            case TicketCreated _ -> Address.NOBODY;
+            case TicketMoved e -> to(e.assigneeId(), e, "%s moved your ticket %s to %s".formatted(
+                    e.actorId(), ticketName(e.ticketId(), e.title()),
+                    swimlaneName(e.toSwimlaneId(), e.toSwimlaneTitle())));
+            case TicketAssigned e -> to(e.assigneeId(), e, "%s assigned %s to you".formatted(
+                    e.actorId(), ticketName(e.ticketId(), e.title())));
+        };
+    }
+
+    private Address to(String recipientId, BoardEvent event, String message) {
+        return recipientId == null || Objects.equals(recipientId, event.actorId())
+                ? Address.NOBODY
+                : new Address(recipientId, message);
+    }
+
     private String summarize(BoardEvent event) {
         return switch (event) {
             case TicketCreated e -> "Ticket #%d created: %s".formatted(e.ticketId(), e.title());
-            case TicketMoved e -> "Ticket #%d moved to swimlane %d".formatted(e.ticketId(), e.toSwimlaneId());
-            case TicketAssigned e -> "Ticket #%d assigned to %s".formatted(e.ticketId(), e.assigneeId());
+            case TicketMoved e -> "Ticket %s moved to %s".formatted(ticketName(e.ticketId(), e.title()),
+                    swimlaneName(e.toSwimlaneId(), e.toSwimlaneTitle()));
+            case TicketAssigned e -> "Ticket %s assigned to %s".formatted(ticketName(e.ticketId(), e.title()),
+                    e.assigneeId());
         };
+    }
+
+    private String ticketName(Long ticketId, String title) {
+        return title == null || title.isBlank() ? "#" + ticketId : "\"%s\"".formatted(title);
+    }
+
+    private String swimlaneName(Long swimlaneId, String title) {
+        return title == null || title.isBlank() ? "swimlane " + swimlaneId : title;
     }
 }

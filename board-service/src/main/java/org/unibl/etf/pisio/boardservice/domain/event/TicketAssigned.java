@@ -5,6 +5,7 @@ import java.time.Instant;
 public record TicketAssigned(
         Long ticketId,
         Long boardId,
+        String title,
         String assigneeId,
         String actorId,
         Instant occurredAt

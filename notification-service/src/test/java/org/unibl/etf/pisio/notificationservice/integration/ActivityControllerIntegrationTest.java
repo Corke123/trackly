@@ -95,6 +95,7 @@ class ActivityControllerIntegrationTest {
     }
 
     private Activity save(Long boardId, String type, String summary, String actorId, Instant occurredAt) {
-        return activityRepository.save(new Activity("event-" + boardId + "-" + type, boardId, type, summary, actorId, occurredAt));
+        return activityRepository.save(new Activity("event-" + boardId + "-" + type, boardId, type, summary,
+                actorId, null, null, occurredAt));
     }
 }
