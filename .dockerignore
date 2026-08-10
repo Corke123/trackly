@@ -8,6 +8,10 @@
 **/.mvn/
 trackly-client/dist/
 trackly-client/.angular/
+trackly-client/coverage/
+trackly-client/reports/
+trackly-client/test-results/
+trackly-client/playwright-report/
 
 # Nothing outside gateway-service and trackly-client contributes to the gateway image.
 board-service/

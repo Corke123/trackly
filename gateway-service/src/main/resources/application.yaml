@@ -43,6 +43,9 @@ trackly:
       notification:
         uri: ${NOTIFICATION_SERVICE_URI:http://localhost:8082}
         paths: ${NOTIFICATION_SERVICE_PATHS:/activity/**}
+      identity:
+        uri: ${IDENTITY_SERVICE_URI:http://localhost:9000}
+        paths: ${IDENTITY_SERVICE_PATHS:/users/**}
 
 management:
   endpoints:

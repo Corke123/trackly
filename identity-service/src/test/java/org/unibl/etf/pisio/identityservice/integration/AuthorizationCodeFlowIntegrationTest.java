@@ -1,8 +1,10 @@
 package org.unibl.etf.pisio.identityservice.integration;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nimbusds.jose.jwk.JWK;
 import com.nimbusds.jose.jwk.JWKSet;
+import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Test;
@@ -34,6 +36,7 @@ import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
@@ -51,6 +54,12 @@ class AuthorizationCodeFlowIntegrationTest {
     private static final String REDIRECT_URI = "http://localhost:8080/login/oauth2/code/trackly";
 
     private static final String CLIENT_SECRET = "trackly-secret";
+
+    private static final TypeReference<Map<String, Object>> JSON_OBJECT = new TypeReference<>() {
+    };
+
+    private static final TypeReference<List<Map<String, Object>>> JSON_OBJECTS = new TypeReference<>() {
+    };
 
 
     @DynamicPropertySource
@@ -86,6 +95,30 @@ class AuthorizationCodeFlowIntegrationTest {
         assertJwksPublishesBothDevKeysWithNoPrivateMaterial();
         assertAuthorizationAndConsentWerePersisted();
         assertUserInfoIsReadableWithTheAccessToken(accessToken);
+        assertIdTokenCarriesTheRolesTheGatewayNeeds((String) tokenResponse.get("id_token"));
+        assertUserDirectoryIsReadableWithTheAccessToken(accessToken);
+    }
+
+    private void assertIdTokenCarriesTheRolesTheGatewayNeeds(String idToken) throws Exception {
+        assertThat(idToken).isNotBlank();
+
+        JWTClaimsSet claims = SignedJWT.parse(idToken).getJWTClaimsSet();
+        assertThat(claims.getSubject()).isEqualTo("demo");
+        assertThat(claims.getStringClaim("preferred_username")).isEqualTo("demo");
+        assertThat(claims.getStringListClaim("roles")).containsExactly("ROLE_USER");
+    }
+
+    private void assertUserDirectoryIsReadableWithTheAccessToken(String accessToken) throws Exception {
+        MvcResult usersResult = mockMvc
+                .perform(get("/users").header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        List<Map<String, Object>> users = objectMapper.readValue(usersResult.getResponse().getContentAsString(),
+                JSON_OBJECTS);
+        assertThat(users).extracting(user -> user.get("username")).contains("admin", "demo", "user");
+
+        mockMvc.perform(get("/users")).andExpect(status().isUnauthorized());
     }
 
     private void assertUserInfoIsReadableWithTheAccessToken(String accessToken) throws Exception {
@@ -95,7 +128,7 @@ class AuthorizationCodeFlowIntegrationTest {
                 .andReturn();
 
         Map<String, Object> claims = objectMapper.readValue(userInfoResult.getResponse().getContentAsString(),
-                Map.class);
+                JSON_OBJECT);
         assertThat(claims).containsEntry("sub", "demo");
     }
 
@@ -143,7 +176,7 @@ class AuthorizationCodeFlowIntegrationTest {
 
         String location = consentResult.getResponse().getRedirectedUrl();
         assertThat(location).startsWith(REDIRECT_URI);
-        MultiValueMap<String, String> redirectParams = UriComponentsBuilder.fromUriString(location)
+        MultiValueMap<String, String> redirectParams = UriComponentsBuilder.fromUriString(requireNonNull(location))
                 .build()
                 .getQueryParams();
         assertThat(redirectParams.getFirst("state")).isEqualTo(state);
@@ -161,7 +194,7 @@ class AuthorizationCodeFlowIntegrationTest {
                         .param("code_verifier", codeVerifier))
                 .andExpect(status().isOk())
                 .andReturn();
-        return objectMapper.readValue(tokenResult.getResponse().getContentAsString(), Map.class);
+        return objectMapper.readValue(tokenResult.getResponse().getContentAsString(), JSON_OBJECT);
     }
 
     private void assertJwksPublishesBothDevKeysWithNoPrivateMaterial() throws Exception {

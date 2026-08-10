@@ -26,6 +26,7 @@ jobs:
     timeout-minutes: 5
     outputs:
       services: ${{ steps.select.outputs.services }}
+      client: ${{ steps.select.outputs.client }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -46,6 +47,8 @@ jobs:
               - 'gateway-service/**'
               # The gateway image bundles the SPA (ADR 0006), so a front-end change rebuilds it.
               - 'trackly-client/**'
+            trackly-client:
+              - 'trackly-client/**'
             shared:
               - '.github/workflows/**'
               - '.github/actions/**'
@@ -56,18 +59,24 @@ jobs:
         env:
           CHANGED: ${{ steps.filter.outputs.changes }}
           SHARED: ${{ steps.filter.outputs.shared }}
+          CLIENT: ${{ steps.filter.outputs.trackly-client }}
           FORCE_ALL: ${{ inputs.force-all }}
         run: |
           set -euo pipefail
           ALL='["board-service","notification-service","identity-service","gateway-service"]'
           if [ "$SHARED" = "true" ] || [ "$FORCE_ALL" = "true" ]; then
             SERVICES="$ALL"
+            CLIENT_BUILD=true
             REASON="shared paths changed"
           else
-            SERVICES=$(printf '%s' "$CHANGED" | jq -c 'map(select(. != "shared"))')
+            # trackly-client is not a Maven service, so it is filtered out of the matrix and given
+            # its own pipeline below.
+            SERVICES=$(printf '%s' "$CHANGED" | jq -c 'map(select(. != "shared" and . != "trackly-client"))')
+            CLIENT_BUILD="$CLIENT"
             REASON="path filter"
           fi
           echo "services=$SERVICES" >> "$GITHUB_OUTPUT"
+          echo "client=$CLIENT_BUILD" >> "$GITHUB_OUTPUT"
           {
             echo "## Change detection"
             echo
@@ -75,6 +84,7 @@ jobs:
             echo "|---|---|"
             echo "| Reason | $REASON |"
             echo "| Services to build | \`$SERVICES\` |"
+            echo "| Build the client | \`$CLIENT_BUILD\` |"
           } >> "$GITHUB_STEP_SUMMARY"
 
   build:
@@ -94,10 +104,21 @@ jobs:
       contents: read
       checks: write
 
+  client:
+    name: trackly-client
+    needs: detect-changes
+    if: needs.detect-changes.outputs.client == 'true'
+    uses: ./.github/workflows/client-ci.yaml
+    with:
+      node-version: '24'
+    permissions:
+      contents: read
+      checks: write
+
   ci:
     name: CI required
     if: always()
-    needs: [ detect-changes, build ]
+    needs: [ detect-changes, build, client ]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -113,7 +134,7 @@ jobs:
   notify-broken-mainline:
     name: Report broken mainline
     if: failure() && github.ref == 'refs/heads/main'
-    needs: [ build ]
+    needs: [ build, client ]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:

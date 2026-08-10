@@ -6,6 +6,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.server.ResponseStatusException;
 import org.unibl.etf.pisio.boardservice.controller.dto.BoardView.TicketView;
 import org.unibl.etf.pisio.boardservice.controller.dto.Requests.UpdateTicket;
@@ -13,6 +14,7 @@ import org.unibl.etf.pisio.boardservice.domain.Ticket;
 import org.unibl.etf.pisio.boardservice.service.BoardService;
 
 import java.time.Instant;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -43,9 +45,9 @@ class TicketControllerTest {
     @DisplayName("Given swimlaneId and position, when updateTicket is called, then the ticket is moved")
     void updateTicketMove() {
         Ticket moved = new Ticket(100L, 1L, 20L, "Title", "Desc", null, 2, Instant.parse("2026-07-25T10:00:00Z"));
-        when(boardService.moveTicket(100L, 20L, 2, "anonymous")).thenReturn(moved);
+        when(boardService.moveTicket(100L, 20L, 2, "demo")).thenReturn(moved);
 
-        TicketView result = ticketController.updateTicket(100L, new UpdateTicket(20L, 2, null));
+        TicketView result = ticketController.updateTicket(100L, new UpdateTicket(20L, 2, null), jwtForDemoUser());
 
         assertThat(result).isEqualTo(TicketView.of(moved));
     }
@@ -54,9 +56,9 @@ class TicketControllerTest {
     @DisplayName("Given an assigneeId, when updateTicket is called, then the ticket is assigned")
     void updateTicketAssign() {
         Ticket assigned = new Ticket(100L, 1L, 10L, "Title", "Desc", "user-1", 0, Instant.parse("2026-07-25T10:00:00Z"));
-        when(boardService.assignTicket(100L, "user-1", "anonymous")).thenReturn(assigned);
+        when(boardService.assignTicket(100L, "user-1", "demo")).thenReturn(assigned);
 
-        TicketView result = ticketController.updateTicket(100L, new UpdateTicket(null, null, "user-1"));
+        TicketView result = ticketController.updateTicket(100L, new UpdateTicket(null, null, "user-1"), jwtForDemoUser());
 
         assertThat(result).isEqualTo(TicketView.of(assigned));
     }
@@ -66,10 +68,10 @@ class TicketControllerTest {
     void updateTicketMoveAndAssign() {
         Ticket moved = new Ticket(100L, 1L, 20L, "Title", "Desc", null, 2, Instant.parse("2026-07-25T10:00:00Z"));
         Ticket assigned = new Ticket(100L, 1L, 20L, "Title", "Desc", "user-1", 2, Instant.parse("2026-07-25T10:00:00Z"));
-        when(boardService.moveTicket(100L, 20L, 2, "anonymous")).thenReturn(moved);
-        when(boardService.assignTicket(100L, "user-1", "anonymous")).thenReturn(assigned);
+        when(boardService.moveTicket(100L, 20L, 2, "demo")).thenReturn(moved);
+        when(boardService.assignTicket(100L, "user-1", "demo")).thenReturn(assigned);
 
-        TicketView result = ticketController.updateTicket(100L, new UpdateTicket(20L, 2, "user-1"));
+        TicketView result = ticketController.updateTicket(100L, new UpdateTicket(20L, 2, "user-1"), jwtForDemoUser());
 
         assertThat(result).isEqualTo(TicketView.of(assigned));
     }
@@ -78,8 +80,9 @@ class TicketControllerTest {
     @DisplayName("Given neither move nor assign fields, when updateTicket is called, then a 400 error is thrown")
     void updateTicketWithoutMoveOrAssign() {
         UpdateTicket request = new UpdateTicket(null, null, null);
+        var jwt = jwtForDemoUser();
 
-        assertThatThrownBy(() -> ticketController.updateTicket(100L, request))
+        assertThatThrownBy(() -> ticketController.updateTicket(100L, request, jwt))
                 .isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining("Provide swimlaneId+position to move, and/or assigneeId to assign");
 
@@ -90,8 +93,9 @@ class TicketControllerTest {
     @DisplayName("Given only swimlaneId without position, when updateTicket is called, then a 400 error is thrown")
     void updateTicketWithSwimlaneIdOnly() {
         UpdateTicket request = new UpdateTicket(20L, null, null);
+        var jwt = jwtForDemoUser();
 
-        assertThatThrownBy(() -> ticketController.updateTicket(100L, request))
+        assertThatThrownBy(() -> ticketController.updateTicket(100L, request, jwt))
                 .isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining("Both swimlaneId and position are required to move a ticket");
 
@@ -102,8 +106,9 @@ class TicketControllerTest {
     @DisplayName("Given only position without swimlaneId, when updateTicket is called, then a 400 error is thrown")
     void updateTicketWithPositionOnly() {
         UpdateTicket request = new UpdateTicket(null, 2, null);
+        var jwt = jwtForDemoUser();
 
-        assertThatThrownBy(() -> ticketController.updateTicket(100L, request))
+        assertThatThrownBy(() -> ticketController.updateTicket(100L, request, jwt))
                 .isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining("Both swimlaneId and position are required to move a ticket");
 
@@ -114,11 +119,20 @@ class TicketControllerTest {
     @DisplayName("Given a blank assigneeId, when updateTicket is called, then a 400 error is thrown")
     void updateTicketWithBlankAssigneeId() {
         UpdateTicket request = new UpdateTicket(null, null, " ");
+        var jwt = jwtForDemoUser();
 
-        assertThatThrownBy(() -> ticketController.updateTicket(100L, request))
+        assertThatThrownBy(() -> ticketController.updateTicket(100L, request, jwt))
                 .isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining("assigneeId must not be blank");
 
         verifyNoInteractions(boardService);
+    }
+
+    private static Jwt jwtForDemoUser() {
+        return Jwt.withTokenValue("token")
+                .header("alg", "none")
+                .subject("demo")
+                .claim("roles", List.of("ROLE_USER"))
+                .build();
     }
 }
