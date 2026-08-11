@@ -23,7 +23,7 @@ import static org.mockito.Mockito.*;
 class BoardEventProcessorTest {
 
     private static final ServiceBusProperties PROPERTIES =
-            new ServiceBusProperties(true, "Endpoint=sb://localhost", "board-events", "notifications");
+            new ServiceBusProperties(true, null, "Endpoint=sb://localhost", "board-events", "notifications");
 
     @Mock
     private ServiceBusClientBuilder.ServiceBusProcessorClientBuilder builder;

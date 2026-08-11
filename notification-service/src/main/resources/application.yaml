@@ -22,6 +22,7 @@ trackly:
     replay-limit: ${ACTIVITY_STREAM_REPLAY_LIMIT:20}
     heartbeat-delay-ms: ${ACTIVITY_STREAM_HEARTBEAT_DELAY_MS:25000}
   servicebus:
+    namespace: ${SERVICEBUS_NAMESPACE:}
     connection-string: ${SERVICEBUS_CONNECTION_STRING:}
     enabled: ${SERVICEBUS_ENABLED:true}
     topic: ${SERVICEBUS_TOPIC:board-events}

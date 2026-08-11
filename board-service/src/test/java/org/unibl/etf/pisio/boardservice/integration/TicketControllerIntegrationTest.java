@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.client.RestTestClient;
 import org.unibl.etf.pisio.boardservice.controller.dto.BoardView.TicketView;
 import org.unibl.etf.pisio.boardservice.controller.dto.Requests.UpdateTicket;
@@ -21,6 +22,7 @@ import static org.unibl.etf.pisio.boardservice.integration.BoardIntegrationTestS
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import({TestcontainersConfig.class, ServiceBusTestSupportConfig.class})
+@ActiveProfiles("local")
 class TicketControllerIntegrationTest {
 
     @Autowired

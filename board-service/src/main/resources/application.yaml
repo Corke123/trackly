@@ -18,6 +18,7 @@ server:
 
 trackly:
   servicebus:
+    namespace: ${SERVICEBUS_NAMESPACE:}
     connection-string: ${SERVICEBUS_CONNECTION_STRING:}
     topic: ${SERVICEBUS_TOPIC:board-events}
   outbox:
