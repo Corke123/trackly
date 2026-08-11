@@ -18,3 +18,7 @@ via the token's subject claim.
   assignments (provisioned in Terraform).
 - Realizes the thesis Ch 5.4 OIDC section and eliminates standing cloud credentials from
   the repository.
+
+> **Amended by [ADR 0014](0014-user-assigned-identities-for-github-oidc.md).** The federated credentials
+> sit on user-assigned managed identities rather than app registrations — the same OIDC exchange, without
+> needing an Entra directory role.

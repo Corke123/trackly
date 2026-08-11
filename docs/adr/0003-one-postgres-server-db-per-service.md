@@ -17,3 +17,5 @@ low, all three databases live on a **single** Azure Database for PostgreSQL Flex
 - Isolation is logical, not physical: a noisy neighbour could affect others. Acceptable
   for a demo; noted as a scaling limitation in Section 6.
 - Each service manages its own schema migrations (Flyway) against its own database only.
+> **Amended by [ADR 0012](0012-shared-data-plane-across-environments.md).** The single server is now
+> shared by `staging` and `production` as well, giving six databases rather than three.

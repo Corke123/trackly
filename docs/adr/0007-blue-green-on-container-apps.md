@@ -19,3 +19,8 @@ revision is kept warm so rollback is a single traffic re-point.
 - Requires services to be stateless and safe to run as two concurrent revisions briefly.
 - The health signal driving the gate is a Spring Boot Actuator endpoint (see ADR 0008 for
   why we avoid heavier observability for the gate).
+
+> **Refined by [ADR 0015](0015-terraform-owns-infrastructure-cli-owns-revisions.md) and
+> [ADR 0016](0016-scale-to-zero-cost-posture.md).** The "requires services to be stateless" condition is
+> not fully met: the gateway and notification-service hold in-memory state, and the consequences are
+> recorded in ADR 0016. Internally-ingressed services also get no pre-traffic HTTP health gate.
