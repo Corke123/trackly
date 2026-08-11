@@ -26,6 +26,13 @@ on:
         required: false
         type: string
         default: ''
+      push-image:
+        description: >
+          Push the image to ACR. True on main only: a pull request builds and scans the image but has
+          nothing to deploy it to, and pushing from a PR would let an unmerged commit reach the registry.
+        required: false
+        type: boolean
+        default: false
     outputs:
       version:
         description: Maven project version that was built.
@@ -198,12 +205,25 @@ jobs:
     timeout-minutes: 20
     permissions:
       contents: read
+      id-token: write
     outputs:
       image-tag: ${{ steps.image.outputs.image-tag }}
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+
+      - name: Sign in to Azure
+        if: inputs.push-image
+        uses: azure/login@f5d393ae46f8fde4be8b75f32e3fc50e654ad0ca # v3.0.1
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Sign in to the container registry
+        if: inputs.push-image
+        run: az acr login --name ${{ vars.ACR_NAME }}
 
       - id: image
         name: Build and scan the container image
@@ -216,7 +236,8 @@ jobs:
           git-sha: ${{ github.sha }}
           build-number: ${{ github.run_number }}
           build-url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          push: 'false'
+          registry: ${{ inputs.push-image && vars.ACR_LOGIN_SERVER || '' }}
+          push: ${{ inputs.push-image && 'true' || 'false' }}
 
       - name: Summarise the package stage
         env:
@@ -231,4 +252,5 @@ jobs:
             echo "| Image | \`$IMAGE\` |"
             echo "| Version | \`${{ needs.commit-stage.outputs.version }}\` |"
             echo "| Built from | \`${GITHUB_SHA}\` |"
+            echo "| Pushed | ${{ inputs.push-image && 'yes' || 'no (build and scan only)' }} |"
           } >> "$GITHUB_STEP_SUMMARY"

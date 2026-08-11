@@ -3,6 +3,7 @@ description: >
   Builds a service image with buildx and the GitHub Actions layer cache, stamps OCI provenance
   labels and Spring Boot build information into it, and scans it with Trivy. `push` defaults to
   false so CI only verifies the artefact; CD flips it to true and supplies a registry.
+  On the default branch it also publishes `latest`, which only a first `terraform apply` consumes.
 
 inputs:
   service:
@@ -70,6 +71,7 @@ runs:
           type=sha,format=long,prefix=sha-
           type=ref,event=branch
           type=ref,event=pr
+          type=raw,value=latest,enable={{is_default_branch}}
         labels: |
           org.opencontainers.image.version=${{ inputs.version }}
           org.opencontainers.image.revision=${{ inputs.git-sha }}
