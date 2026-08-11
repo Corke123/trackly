@@ -12,7 +12,7 @@ spring:
     enabled: true
     placeholders:
       trackly_client_id: ${TRACKLY_CLIENT_ID:trackly}
-      trackly_client_secret: "{bcrypt}$2a$10$jFAJeQhWd24og77IqQoe9OHAaGc7NBPAobmEZzN9.ymkxXn2IzjVq"
+      trackly_client_secret: "${TRACKLY_CLIENT_SECRET:{bcrypt}$2a$10$jFAJeQhWd24og77IqQoe9OHAaGc7NBPAobmEZzN9.ymkxXn2IzjVq}"
       trackly_redirect_uri: ${TRACKLY_REDIRECT_URI:http://localhost:8080/login/oauth2/code/trackly}
       trackly_post_logout_redirect_uri: ${TRACKLY_POST_LOGOUT_REDIRECT_URI:http://localhost:8080}
   security:
@@ -21,11 +21,6 @@ spring:
         issuer: ${TRACKLY_ISSUER_URI:http://localhost:9000}
 
 trackly:
-  client:
-    id: ${TRACKLY_CLIENT_ID:trackly}
-    secret: ${TRACKLY_CLIENT_SECRET:trackly-secret}
-    redirect-uri: ${TRACKLY_REDIRECT_URI:http://localhost:8080/login/oauth2/code/trackly}
-    post-logout-redirect-uri: ${TRACKLY_POST_LOGOUT_REDIRECT_URI:http://localhost:8080}
   jwt:
     signing:
       source: ${TRACKLY_JWT_SIGNING_SOURCE:pem}

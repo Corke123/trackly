@@ -44,6 +44,18 @@ variable "postgres_fqdn" {
   type = string
 }
 
+variable "client_secret" {
+  description = "Plaintext OAuth2 client secret the gateway authenticates with."
+  type        = string
+  sensitive   = true
+}
+
+variable "client_secret_bcrypt" {
+  description = "The same secret as a {bcrypt} hash, which is what identity-service stores. Generate with `htpasswd -bnBC 10 \"\" <secret>`."
+  type        = string
+  sensitive   = true
+}
+
 variable "postgres_admin_password" {
   description = "Stored in this environment's Key Vault for break-glass use. No app reads it."
   type        = string

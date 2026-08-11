@@ -37,14 +37,28 @@ Three consequences fall out of the choice of *user-assigned* identity:
 
 ## Two decisions that follow from it
 
-**The registered client is reconciled at startup, not seeded by a migration.** The gateway's redirect URI
-and client secret were Flyway placeholders applied once, at migration time. Since the gateway's origin is
-a generated Container Apps FQDN, that made them unfixable: if the URL ever changed, login failed with
-`invalid_redirect_uri` and no migration would repair it. `RegisteredClientReconciler` now converges the
-row on every startup. It also removes the need for Terraform to produce a bcrypt hash — Terraform
-generates one plaintext secret, both services read it, and identity-service hashes it. Shelling out to
-`htpasswd` from Terraform was rejected: bcrypt re-salts on every run, so the plan would show a permanent
-diff and write a new Key Vault secret version on every apply.
+**The registered client stays seeded by Flyway, and the operator supplies the client secret in both
+forms.** No application code participates in this.
+
+The redirect URI needs none: Terraform derives the gateway's URL from the Container Apps environment's
+`default_domain`, which exists before any container app is created, so `TRACKLY_REDIRECT_URI` is already
+correct on identity-service's first boot and `V1`/`V7` seed the right value. There is no chicken-and-egg
+to solve.
+
+The client secret does need two forms — identity-service stores a `{bcrypt}` hash, the gateway holds the
+plaintext — and Terraform has no `bcrypt()` function. The operator therefore generates the pair once with
+`htpasswd -bnBC 10` and stores both as GitHub secrets, and Terraform writes both to Key Vault. Deriving
+the hash inside Terraform with `data "external"` was rejected: bcrypt re-salts on every run, so the plan
+would show a permanent diff and write a new Key Vault secret version on every apply.
+
+They are **repository** secrets rather than environment secrets, because `infra.yaml` cannot bind a
+GitHub environment without changing its OIDC subject away from the one the infra identity accepts
+(ADR 0014).
+
+The cost of having no startup reconciliation is that nothing self-heals if the URL changes. Replacing the
+Container Apps environment therefore means a manual `UPDATE` on `oauth2_registered_client`, or a new
+migration. That is accepted: it happens rarely, and it is preferable to keeping an `ApplicationRunner`
+whose only job is to repair configuration.
 
 **The Service Bus topic TTL is `P7D` in Azure, against `PT1H` locally.** With `min_replicas = 0`,
 notification-service can be asleep for hours, and a one-hour TTL would silently drop events rather than

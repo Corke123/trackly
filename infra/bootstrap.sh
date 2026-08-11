@@ -99,7 +99,7 @@ gh api -X PUT "repos/${GITHUB_OWNER}/${GITHUB_REPO}/environments/production" --s
 cat <<EOF
 
 ======================================================================
-Bootstrap complete. Three things left, all by hand.
+Bootstrap complete. Four things left, all by hand.
 ======================================================================
 
 1. Set the GitHub variables:
@@ -127,11 +127,26 @@ gh variable set BUDGET_ALERT_EMAIL           --body "you@example.com"
 gh variable set ACR_NAME         --body "\$(terraform -chdir=infra/environments/shared output -raw acr_name)"
 gh variable set ACR_LOGIN_SERVER --body "\$(terraform -chdir=infra/environments/shared output -raw acr_login_server)"
 
-2. In the GitHub UI, add a **required reviewers** protection rule to the
+2. Generate the OAuth2 client secret for each environment. identity-service
+   stores a bcrypt hash and the gateway holds the plaintext, so both forms are
+   needed. Repeat for production:
+
+for env in STAGING PRODUCTION; do
+  SECRET=\$(openssl rand -base64 30 | tr -d '/+=')
+  HASH=\$(htpasswd -bnBC 10 "" "\$SECRET" | tr -d ':\\n')
+  gh secret set "CLIENT_SECRET_\${env}"      --body "\$SECRET"
+  gh secret set "CLIENT_SECRET_HASH_\${env}" --body "{bcrypt}\$HASH"
+done
+
+   These are repository secrets, not environment secrets: infra.yaml cannot
+   bind a GitHub environment without changing its OIDC subject away from what
+   the infra identity accepts.
+
+3. In the GitHub UI, add a **required reviewers** protection rule to the
    'production' environment. That rule is the manual approval gate — without
    it, this pipeline performs continuous deployment, not continuous delivery.
 
-3. Apply the shared stack, then follow infra/README.md:
+4. Apply the shared stack, then follow infra/README.md:
 
 terraform -chdir=infra/environments/shared init \\
   -backend-config="resource_group_name=${RG}" \\

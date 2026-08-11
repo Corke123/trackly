@@ -20,15 +20,15 @@ resource "azurerm_key_vault" "env" {
   tags = var.tags
 }
 
-resource "random_password" "client_secret" {
-  length           = 40
-  special          = true
-  override_special = "!#%*()-_=+"
-}
-
 resource "azurerm_key_vault_secret" "client_secret" {
   name         = "trackly-client-secret"
-  value        = random_password.client_secret.result
+  value        = var.client_secret
+  key_vault_id = azurerm_key_vault.env.id
+}
+
+resource "azurerm_key_vault_secret" "client_secret_hash" {
+  name         = "trackly-client-secret-hash"
+  value        = var.client_secret_bcrypt
   key_vault_id = azurerm_key_vault.env.id
 }
 

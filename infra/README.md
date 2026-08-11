@@ -88,8 +88,16 @@ Renaming the environment, adding a `workload_profile` block or adding VNet integ
 replacement — and that changes the OAuth2 issuer, the gateway's registered redirect URI, and any
 bookmark. Decide those things *before* the first production apply.
 
-identity-service's registered-client reconciler repairs the database rows on the next startup. Nothing
-repairs tokens already in circulation.
+Nothing repairs this automatically. The redirect URI is seeded into `oauth2_registered_client` by Flyway on
+first boot, so a changed URL means logging in fails with `invalid_redirect_uri` until you fix the row by
+hand:
+
+```bash
+psql "host=<server>.postgres.database.azure.com dbname=identity_db_production user=<you> sslmode=require" \
+  -c "UPDATE oauth2_registered_client SET redirect_uris='https://<new-gateway>/login/oauth2/code/trackly', post_logout_redirect_uris='https://<new-gateway>' WHERE client_id='trackly';"
+```
+
+Tokens already in circulation are not repairable either way.
 
 ### The PostgreSQL firewall is pinned to an IP Azure does not guarantee
 

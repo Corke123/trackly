@@ -59,7 +59,7 @@ services:
       IDENTITY_DB_USERNAME: trackly
       IDENTITY_DB_PASSWORD: trackly
       TRACKLY_ISSUER_URI: http://host.docker.internal:9000
-      TRACKLY_CLIENT_SECRET: trackly-secret
+      TRACKLY_CLIENT_SECRET: "{noop}trackly-secret"
       TRACKLY_REDIRECT_URI: http://localhost:8080/login/oauth2/code/trackly
       TRACKLY_POST_LOGOUT_REDIRECT_URI: http://localhost:8080
     healthcheck:

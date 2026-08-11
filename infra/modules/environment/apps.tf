@@ -29,8 +29,8 @@ module "identity_app" {
     AZURE_CLIENT_ID = azurerm_user_assigned_identity.app["identity"].client_id
   })
 
-  secrets         = { "trackly-client-secret" = azurerm_key_vault_secret.client_secret.versionless_id }
-  secret_env_vars = { TRACKLY_CLIENT_SECRET = "trackly-client-secret" }
+  secrets         = { "trackly-client-secret-hash" = azurerm_key_vault_secret.client_secret_hash.versionless_id }
+  secret_env_vars = { TRACKLY_CLIENT_SECRET = "trackly-client-secret-hash" }
 
   tags = var.tags
 

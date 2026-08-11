@@ -13,6 +13,18 @@ variable "image_tag" {
   default     = "latest"
 }
 
+variable "client_secret" {
+  description = "Plaintext OAuth2 client secret. Supplied as TF_VAR_client_secret."
+  type        = string
+  sensitive   = true
+}
+
+variable "client_secret_bcrypt" {
+  description = "The same secret as a {bcrypt} hash. Supplied as TF_VAR_client_secret_bcrypt."
+  type        = string
+  sensitive   = true
+}
+
 variable "tfstate_resource_group" {
   type = string
 }

@@ -17,6 +17,9 @@ module "environment" {
   location  = var.location
   image_tag = var.image_tag
 
+  client_secret        = var.client_secret
+  client_secret_bcrypt = var.client_secret_bcrypt
+
   acr_id                               = data.terraform_remote_state.shared.outputs.acr_id
   acr_login_server                     = data.terraform_remote_state.shared.outputs.acr_login_server
   log_analytics_workspace_id           = data.terraform_remote_state.shared.outputs.log_analytics_workspace_id

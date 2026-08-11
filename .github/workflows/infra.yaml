@@ -71,6 +71,9 @@ jobs:
       - id: plan
         name: Plan
         working-directory: infra/environments/${{ matrix.stack }}
+        env:
+          TF_VAR_client_secret: ${{ matrix.stack == 'production' && secrets.CLIENT_SECRET_PRODUCTION || secrets.CLIENT_SECRET_STAGING }}
+          TF_VAR_client_secret_bcrypt: ${{ matrix.stack == 'production' && secrets.CLIENT_SECRET_HASH_PRODUCTION || secrets.CLIENT_SECRET_HASH_STAGING }}
         run: |
           set -o pipefail
           terraform plan -input=false -no-color -lock-timeout=5m \
@@ -133,6 +136,10 @@ jobs:
       - name: Apply
         env:
           STACKS: ${{ steps.stacks.outputs.list }}
+          CLIENT_SECRET_STAGING: ${{ secrets.CLIENT_SECRET_STAGING }}
+          CLIENT_SECRET_HASH_STAGING: ${{ secrets.CLIENT_SECRET_HASH_STAGING }}
+          CLIENT_SECRET_PRODUCTION: ${{ secrets.CLIENT_SECRET_PRODUCTION }}
+          CLIENT_SECRET_HASH_PRODUCTION: ${{ secrets.CLIENT_SECRET_HASH_PRODUCTION }}
         run: |
           set -euo pipefail
           for stack in $STACKS; do
@@ -150,10 +157,16 @@ jobs:
                 -var github_infra_identity_principal_id="${{ vars.INFRA_IDENTITY_PRINCIPAL_ID }}" \
                 -var budget_alert_email="${{ vars.BUDGET_ALERT_EMAIL }}"
             else
+              suffix=$(echo "$stack" | tr '[:lower:]' '[:upper:]')
+              secret="CLIENT_SECRET_${suffix}"
+              hash="CLIENT_SECRET_HASH_${suffix}"
+              export TF_VAR_client_secret="${!secret}"
+              export TF_VAR_client_secret_bcrypt="${!hash}"
               terraform apply -input=false -auto-approve -lock-timeout=5m \
                 -var subscription_id="${{ vars.AZURE_SUBSCRIPTION_ID }}" \
                 -var tfstate_resource_group="${{ vars.TFSTATE_RESOURCE_GROUP }}" \
                 -var tfstate_storage_account="${{ vars.TFSTATE_STORAGE_ACCOUNT }}"
+              unset TF_VAR_client_secret TF_VAR_client_secret_bcrypt
             fi
             cd - >/dev/null
             echo "::endgroup::"
