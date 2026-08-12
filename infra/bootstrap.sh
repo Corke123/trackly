@@ -73,10 +73,15 @@ add_fic() {
   fi
 }
 
-add_fic id-trackly-github-infra gh-pull-request "repo:${GITHUB_OWNER}/${GITHUB_REPO}:pull_request"
-add_fic id-trackly-github-infra gh-main "repo:${GITHUB_OWNER}/${GITHUB_REPO}:ref:refs/heads/main"
-add_fic id-trackly-github-staging gh-env-staging "repo:${GITHUB_OWNER}/${GITHUB_REPO}:environment:staging"
-add_fic id-trackly-github-production gh-env-production "repo:${GITHUB_OWNER}/${GITHUB_REPO}:environment:production"
+SUB_PREFIX=$(gh api "repos/${GITHUB_OWNER}/${GITHUB_REPO}/actions/oidc/customization/sub" \
+  --jq '.sub_claim_prefix // empty' 2>/dev/null || true)
+SUB_PREFIX="${SUB_PREFIX:-repo:${GITHUB_OWNER}/${GITHUB_REPO}}"
+echo "    subject prefix: ${SUB_PREFIX}"
+
+add_fic id-trackly-github-infra gh-pull-request "${SUB_PREFIX}:pull_request"
+add_fic id-trackly-github-infra gh-main "${SUB_PREFIX}:ref:refs/heads/main"
+add_fic id-trackly-github-staging gh-env-staging "${SUB_PREFIX}:environment:staging"
+add_fic id-trackly-github-production gh-env-production "${SUB_PREFIX}:environment:production"
 
 echo "==> Role assignments for the infra identity"
 grant() {
