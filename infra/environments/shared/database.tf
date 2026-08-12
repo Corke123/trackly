@@ -44,7 +44,7 @@ resource "azurerm_postgresql_flexible_server_configuration" "require_secure_tran
 }
 
 resource "azurerm_postgresql_flexible_server_configuration" "minimum_tls" {
-  name      = "ssl_minimal_tls_version_enforced"
+  name      = "ssl_min_protocol_version"
   server_id = azurerm_postgresql_flexible_server.shared.id
   value     = "TLSv1.2"
 }
