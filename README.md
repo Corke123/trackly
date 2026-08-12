@@ -1,6 +1,9 @@
 # Trackly
 
 [![CI](https://github.com/Corke123/trackly/actions/workflows/ci.yaml/badge.svg?branch=main)](https://github.com/Corke123/trackly/actions/workflows/ci.yaml)
+[![Infrastructure](https://github.com/Corke123/trackly/actions/workflows/infra.yaml/badge.svg?branch=main)](https://github.com/Corke123/trackly/actions/workflows/infra.yaml)
+[![Quality gate](https://sonarcloud.io/api/project_badges/measure?project=Corke123_trackly&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=Corke123_trackly)
+[![Maintainability](https://sonarcloud.io/api/project_badges/measure?project=Corke123_trackly&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=Corke123_trackly)
 
 A minimal, functional Trello-like **single-board** kanban application, built as a
 microservice monorepo. Trackly is the practical showcase for the bachelor thesis
@@ -170,6 +173,11 @@ deployment pipeline (ADR 0010):
 
 The commit stage needs no Docker, so a mistake comes back in about two minutes; the slow, infrastructure-heavy
 verification runs behind it.
+
+SonarCloud analyses every pull request alongside these stages and gates on an **A** security rating for new code.
+Findings that are deliberate design decisions rather than defects are marked reviewed in SonarCloud, with the reasoning
+recorded in [ADR 0017](docs/adr/0017-accepted-static-analysis-findings.md) so it lives in the repository rather than only
+in a review comment.
 
 `gateway-service` goes through the same three stages as every other service, with one difference: its image bundles the
 SPA (ADR 0006), so a change under `trackly-client/**` triggers the gateway's build, and the gateway's image is the only
