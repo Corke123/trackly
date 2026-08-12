@@ -42,7 +42,7 @@ data "azurerm_user_assigned_identity" "deployer" {
 
 resource "azurerm_role_assignment" "deployer_contributor" {
   scope                = azurerm_resource_group.env.id
-  role_definition_name = "Contributor"
+  role_definition_name = "Container Apps Contributor"
   principal_id         = data.azurerm_user_assigned_identity.deployer.principal_id
   principal_type       = "ServicePrincipal"
 }

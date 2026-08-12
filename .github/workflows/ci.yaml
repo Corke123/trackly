@@ -269,10 +269,10 @@ jobs:
           cache-dependency-path: trackly-client/package-lock.json
 
       - working-directory: trackly-client
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - working-directory: trackly-client
-        run: npx playwright install --with-deps chromium
+        run: ./node_modules/.bin/playwright install --with-deps chromium
 
       - name: Run the full-stack journeys against staging
         working-directory: trackly-client

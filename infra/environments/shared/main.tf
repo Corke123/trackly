@@ -23,12 +23,14 @@ resource "azurerm_log_analytics_workspace" "shared" {
 }
 
 resource "azurerm_container_registry" "shared" {
-  name                = "crtrackly${random_string.suffix.result}"
-  resource_group_name = azurerm_resource_group.shared.name
-  location            = azurerm_resource_group.shared.location
-  sku                 = "Basic"
-  admin_enabled       = false
-  tags                = var.tags
+  name                          = "crtrackly${random_string.suffix.result}"
+  resource_group_name           = azurerm_resource_group.shared.name
+  location                      = azurerm_resource_group.shared.location
+  sku                           = "Basic"
+  admin_enabled                 = false
+  anonymous_pull_enabled        = false
+  public_network_access_enabled = true
+  tags                          = var.tags
 }
 
 resource "azurerm_role_assignment" "github_infra_acr_push" {
