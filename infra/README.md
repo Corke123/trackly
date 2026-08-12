@@ -52,6 +52,13 @@ Then the same two commands for `production`.
 **Never apply staging and production at the same time.** Both create children of the same PostgreSQL
 server and Service Bus namespace, and ARM returns a conflict on the shared parent.
 
+**Apply the environment stacks before merging the commit that introduces them.** `infra.yaml` and
+`ci.yaml` both trigger on a push to `main`, and they start together. A shared `azure-container-apps`
+concurrency group stops them mutating a container app simultaneously, but it does not order them — so on
+the merge that first creates an environment, the deploy can win the lock and fail with
+`The containerapp '<name>' does not exist` while Terraform is still building. Applying first avoids it;
+otherwise just re-run the CI workflow once the infrastructure run finishes.
+
 ## Things that will bite you
 
 ### `grant-db-identities.sh` is not optional

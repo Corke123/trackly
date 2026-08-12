@@ -6,7 +6,12 @@ ENV_NAME="${1:?Usage: grant-db-identities.sh <staging|production>}"
 INFRA_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 PGHOST=$(terraform -chdir="${INFRA_DIR}/environments/shared" output -raw postgres_fqdn)
-ADMIN_UPN=$(az ad signed-in-user show --query userPrincipalName -o tsv)
+PG_SERVER=$(terraform -chdir="${INFRA_DIR}/environments/shared" output -raw postgres_server_name)
+PG_RG=$(terraform -chdir="${INFRA_DIR}/environments/shared" output -raw resource_group_name)
+
+ADMIN_UPN=$(az postgres flexible-server microsoft-entra-admin list \
+  -g "$PG_RG" -s "$PG_SERVER" --query "[0].principalName" -o tsv 2>/dev/null || true)
+ADMIN_UPN="${ADMIN_UPN:-$(az ad signed-in-user show --query userPrincipalName -o tsv)}"
 
 IDENTITIES_JSON=$(terraform -chdir="${INFRA_DIR}/environments/${ENV_NAME}" output -json app_identity_names)
 DATABASES_JSON=$(terraform -chdir="${INFRA_DIR}/environments/${ENV_NAME}" output -json database_names)

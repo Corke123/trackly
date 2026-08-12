@@ -165,7 +165,7 @@ jobs:
     timeout-minutes: 30
     environment: staging
     concurrency:
-      group: deploy-staging
+      group: azure-container-apps
       cancel-in-progress: false
     permissions:
       contents: read
@@ -296,7 +296,7 @@ jobs:
     timeout-minutes: 30
     environment: production
     concurrency:
-      group: deploy-production
+      group: azure-container-apps
       cancel-in-progress: false
     permissions:
       contents: read
