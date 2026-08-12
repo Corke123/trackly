@@ -106,14 +106,23 @@ psql "host=<server>.postgres.database.azure.com dbname=identity_db_production us
 
 Tokens already in circulation are not repairable either way.
 
-### The PostgreSQL firewall is pinned to an IP Azure does not guarantee
+### The PostgreSQL firewall admits any Azure service
 
-Each environment gets one firewall rule allowing exactly its Container Apps environment's static
-outbound IP — far tighter than the usual allow-all-Azure-services rule, which admits any Azure tenant.
-But outbound-IP stability is not a contractual guarantee. If it changes, all three apps in that
-environment lose the database at once with a generic connection failure. The documented fallback is a
-second rule with `start_ip_address = end_ip_address = "0.0.0.0"`; the proper fix is VNet integration,
-which is also an environment replacement (see above).
+A single `0.0.0.0` rule — what Azure labels "Allow public access from any Azure service" — plus one rule
+for the operator's own IP so `grant-db-identities.sh` can connect.
+
+This started out tighter: one rule per environment pinned to
+`azurerm_container_app_environment.static_ip_address`. That does not work. On a Consumption-only
+environment `static_ip_address` is the **inbound** ingress address; egress leaves through a shared Azure
+SNAT pool, and `outboundIpAddresses` on the environment is null. The apps were therefore denied and failed
+at startup with `SocketTimeoutException: Connect timed out` rather than anything mentioning the firewall.
+
+What limits the exposure is authentication, not the network: every application connects as its own managed
+identity with an Entra token (ADR 0013), those identities exist only in this tenant, and each owns only its
+own database. The break-glass administrator password is the one shared credential and no application uses it.
+
+Tightening this properly means VNet-integrating the Container Apps environments so the database can take a
+private endpoint — which replaces the environments and therefore changes every URL (see above).
 
 ### Costs
 

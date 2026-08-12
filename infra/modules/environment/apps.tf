@@ -37,7 +37,6 @@ module "identity_app" {
   depends_on = [
     time_sleep.rbac,
     azurerm_postgresql_flexible_server_database.db,
-    azurerm_postgresql_flexible_server_firewall_rule.container_apps,
   ]
 }
 
@@ -69,7 +68,6 @@ module "board_app" {
   depends_on = [
     time_sleep.rbac,
     azurerm_postgresql_flexible_server_database.db,
-    azurerm_postgresql_flexible_server_firewall_rule.container_apps,
   ]
 }
 
@@ -108,7 +106,6 @@ module "notification_app" {
   depends_on = [
     time_sleep.rbac,
     azurerm_postgresql_flexible_server_database.db,
-    azurerm_postgresql_flexible_server_firewall_rule.container_apps,
   ]
 }
 

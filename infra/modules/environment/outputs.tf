@@ -12,10 +12,6 @@ output "identity_url" {
   value       = local.identity_url
 }
 
-output "container_app_environment_static_ip" {
-  description = "What the PostgreSQL firewall rule is pinned to."
-  value       = azurerm_container_app_environment.this.static_ip_address
-}
 
 output "container_app_names" {
   description = "Consumed by the deploy workflow to address revisions."
