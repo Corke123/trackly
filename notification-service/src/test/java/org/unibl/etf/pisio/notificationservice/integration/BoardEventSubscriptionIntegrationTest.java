@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.ActiveProfiles;
 import org.unibl.etf.pisio.notificationservice.domain.Activity;
 import org.unibl.etf.pisio.notificationservice.domain.event.TicketAssigned;
 import org.unibl.etf.pisio.notificationservice.domain.event.TicketCreated;
@@ -19,6 +20,7 @@ import static org.unibl.etf.pisio.notificationservice.integration.NotificationIn
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import({TestcontainersConfig.class, ServiceBusTestSupportConfig.class})
+@ActiveProfiles("local")
 class BoardEventSubscriptionIntegrationTest {
 
     private static final Instant OCCURRED_AT = Instant.parse("2026-07-25T10:00:00Z");

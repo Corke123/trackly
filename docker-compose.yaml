@@ -84,6 +84,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
+      SPRING_PROFILES_ACTIVE: local
       BOARD_DB_URL: jdbc:postgresql://postgres:5432/board_db
       BOARD_DB_USERNAME: trackly
       BOARD_DB_PASSWORD: trackly
@@ -112,6 +113,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
+      SPRING_PROFILES_ACTIVE: local
       NOTIFICATION_DB_URL: jdbc:postgresql://postgres:5432/notification_db
       NOTIFICATION_DB_USERNAME: trackly
       NOTIFICATION_DB_PASSWORD: trackly

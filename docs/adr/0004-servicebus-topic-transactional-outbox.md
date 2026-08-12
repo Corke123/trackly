@@ -20,3 +20,6 @@ outbox rows to the topic with at-least-once delivery.
   without touching board-service.
 - Standard tier's flat ~$10/mo is accepted as the cost of a faithful pub/sub demonstration
   (Ch 3.1.8 production parity, event-driven architecture).
+> **Amended by [ADR 0013](0013-managed-identity-for-every-azure-dependency.md).** Producer and consumer
+> authenticate with managed identities rather than a connection string, and the Azure topic TTL is `P7D`
+> so events survive notification-service scaling to zero.

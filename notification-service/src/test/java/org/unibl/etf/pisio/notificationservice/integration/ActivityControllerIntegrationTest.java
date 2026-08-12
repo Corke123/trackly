@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.test.web.servlet.client.RestTestClient;
 import org.unibl.etf.pisio.notificationservice.controller.ActivityController.ActivityView;
@@ -22,6 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import({TestcontainersConfig.class, ServiceBusTestSupportConfig.class})
+@ActiveProfiles("local")
 class ActivityControllerIntegrationTest {
 
     private static final Instant OCCURRED_AT = Instant.parse("2026-07-25T10:00:00Z");

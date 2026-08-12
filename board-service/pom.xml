@@ -72,6 +72,14 @@
             <groupId>com.azure</groupId>
             <artifactId>azure-messaging-servicebus</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.azure</groupId>
+            <artifactId>azure-identity</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.azure</groupId>
+            <artifactId>azure-identity-extensions</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>org.postgresql</groupId>

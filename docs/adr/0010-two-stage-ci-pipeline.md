@@ -81,3 +81,8 @@ stage's Testcontainers work at a lower fidelity than staging offers.
   `.tar.gz` when `unzip` is missing, so an Alpine builder must install `unzip` in the same change.
 - Trivy runs in report-only mode (`exit-code: 0`) until the baseline finding count for
   `eclipse-temurin:25-jre-alpine` is known; flipping it to `1` is a one-input change.
+
+> **Continued by [ADR 0015](0015-terraform-owns-infrastructure-cli-owns-revisions.md).** The seams named
+> here are now used: `docker-build` pushes to ACR on `main`, and the deploy jobs live in `ci.yaml` outside
+> the `CI required` job's `needs` so that check keeps its meaning. The `e2e-stack` suite runs against
+> staging as the acceptance gate.

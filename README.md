@@ -1,6 +1,9 @@
 # Trackly
 
 [![CI](https://github.com/Corke123/trackly/actions/workflows/ci.yaml/badge.svg?branch=main)](https://github.com/Corke123/trackly/actions/workflows/ci.yaml)
+[![Infrastructure](https://github.com/Corke123/trackly/actions/workflows/infra.yaml/badge.svg?branch=main)](https://github.com/Corke123/trackly/actions/workflows/infra.yaml)
+[![Quality gate](https://sonarcloud.io/api/project_badges/measure?project=Corke123_trackly&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=Corke123_trackly)
+[![Maintainability](https://sonarcloud.io/api/project_badges/measure?project=Corke123_trackly&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=Corke123_trackly)
 
 A minimal, functional Trello-like **single-board** kanban application, built as a
 microservice monorepo. Trackly is the practical showcase for the bachelor thesis
@@ -85,10 +88,9 @@ trackly/
 ├── board-service/         # core domain
 ├── notification-service/  # event consumer + activity feed + activity stream
 ├── trackly-client/        # Angular SPA (src/, e2e/ stubbed journeys, e2e-stack/ full-stack ones)
-├── infra/                 # Terraform (modules + environments/{staging,prod})
+├── infra/                 # Terraform (modules + environments/{shared,staging,production})
 ├── docs/adr/              # architecture decision records
-├── CONTEXT.md             # domain glossary
-└── section-6.md           # thesis Section 6 write-up (Serbian)
+└── CONTEXT.md             # domain glossary
 ```
 
 ## Local development
@@ -172,6 +174,11 @@ deployment pipeline (ADR 0010):
 The commit stage needs no Docker, so a mistake comes back in about two minutes; the slow, infrastructure-heavy
 verification runs behind it.
 
+SonarCloud analyses every pull request alongside these stages and gates on an **A** security rating for new code.
+Findings that are deliberate design decisions rather than defects are marked reviewed in SonarCloud, with the reasoning
+recorded in [ADR 0017](docs/adr/0017-accepted-static-analysis-findings.md) so it lives in the repository rather than only
+in a review comment.
+
 `gateway-service` goes through the same three stages as every other service, with one difference: its image bundles the
 SPA (ADR 0006), so a change under `trackly-client/**` triggers the gateway's build, and the gateway's image is the only
 one built from the repository root rather than its own directory.
@@ -198,10 +205,12 @@ jar are attached to the run as artifacts. A failure on
 `main` opens (or comments on) an issue labelled `broken-build`.
 
 Every image carries its provenance: `/actuator/info` reports `build.version`, `build.revision` (the commit),
-`build.buildNumber` and `build.buildUrl`. Nothing in CI starts the image to check that yet — the end-to-end test that
-does belongs against a deployed staging environment, so it arrives with continuous delivery.
+`build.buildNumber` and `build.buildUrl`. The blue-green deploy asserts on it — a new revision only takes traffic once
+`/actuator/info` on its own FQDN reports the commit being deployed, which proves the revision is running that code and
+not a cached image.
 
-Continuous **delivery** is not wired up yet — see ADR 0010 for the seams it plugs into.
+Continuous **delivery** builds on this: see [Deploying to Azure](#deploying-to-azure) below, and ADR 0015 for how the
+Terraform and pipeline responsibilities divide.
 
 ### Required setup for CI
 
@@ -218,38 +227,83 @@ These cannot be committed and must be set once in the GitHub UI:
 
 ## Deploying to Azure
 
-Infrastructure is Terraform (`infra/`); application delivery is GitHub Actions. High level:
+Infrastructure is Terraform (`infra/`); delivery is GitHub Actions. Everything is automated except a
+one-time bootstrap and a per-environment database grant — see [`infra/README.md`](infra/README.md) for
+the runbook and the things that will bite you.
 
-1. **Bootstrap** (once, by an admin): create the remote-state storage account, then
-   `terraform apply` `infra/environments/shared` and each environment with `-var bootstrap=true`.
-   This creates the registry, the platform, and the **GitHub OIDC identities** (ADR 0008).
-2. Wire the GitHub repository/environments (below) with the OIDC identity ids output by
-   Terraform.
-3. Push to `main`: the pipeline builds images, deploys to **staging**, then to
-   **production** after a manual approval (Ch 3.2), using blue-green releases (Ch 3.3).
+### What a push to `main` does
 
-The gateway container app is the only public entry point — it serves the SPA and is the OAuth2
-`redirect-uri` — so there is no separate front-end hosting to provision or link (ADR 0006).
+```
+CI (unit → integration → image push to ACR)
+  └─ staging: blue-green per changed service, revision at 0% → verified → 100%
+       └─ acceptance: e2e:stack Playwright journeys against real Azure
+            └─ ⏸ manual approval  (required reviewers on the production environment)
+                 └─ production: blue-green, previous revision kept warm
+```
 
-### Required GitHub configuration
+Only **changed** services are built and deployed (`dorny/paths-filter`); an unchanged service's live
+revision already runs the right image. A `trackly-client` change redeploys `gateway-service`, because the
+SPA is bundled into that image (ADR 0006).
 
-Repository-level **variables**: `ACR_NAME`, `ACR_LOGIN_SERVER`, `TFSTATE_RESOURCE_GROUP`,
-`TFSTATE_STORAGE_ACCOUNT`.
+The staging step deploys `identity-service` before `gateway-service` — the gateway resolves identity's
+OIDC discovery document while starting and will not boot without it.
 
-Per **Environment** (`staging`, `production`) **variables**: `AZURE_CLIENT_ID`,
-`AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `RESOURCE_GROUP`. The `production` environment must have a
-**required-reviewers** protection rule to realise the approval gate.
+### Topology
 
-`main` should be a **protected branch** requiring the CI checks to pass (Ch 3.1.6).
+Two environments, `staging` and `production`, sharing one data plane (ADR 0012): one container registry,
+one PostgreSQL Flexible Server with a database per service per environment, one Service Bus namespace with
+a topic per environment. Each environment has its own Container Apps environment, Key Vault, and four
+managed identities — one per service.
+
+Every dependency is reached with a managed identity: PostgreSQL via Entra tokens, Service Bus via RBAC,
+Key Vault via `DefaultAzureCredential` (ADR 0013). No password or connection string is on any runtime
+path, and **none of it changes local development** — each path is a branch whose default is the existing
+Compose behaviour.
+
+The gateway is the only application entry point; identity-service is also public, because the browser is
+redirected to its own origin for the login form (ADR 0006).
+
+All eight container apps scale to zero and PostgreSQL is stopped nightly, so expect a 20–40 second cold
+start on the first request (ADR 0016). Roughly $32/month running, $20/month hibernated.
+
+### Other workflows
+
+| Workflow | Trigger | What it does |
+|---|---|---|
+| `infra.yaml` | `infra/**` | `terraform plan` on a PR (posted as a comment), apply on `main` |
+| `rollback.yaml` | manual | Re-points traffic to the previous revision. Does **not** revert migrations |
+| `hibernate.yaml` | nightly + manual | Stops or starts PostgreSQL — the main cost lever |
+| `acr-purge.yaml` | weekly | Keeps ACR Basic under its 10 GB allowance |
+
+### Required setup
+
+Run the bootstrap, which prints everything else it needs:
+
+```bash
+SUBSCRIPTION_ID=... GITHUB_OWNER=... ./infra/bootstrap.sh
+```
+
+It creates the remote-state storage account and the three GitHub federated identities (ADR 0014), then
+prints the `gh variable set` commands for the repository and environment variables. Two things it cannot
+do for you:
+
+1. **Add a required-reviewers rule to the `production` environment** in the GitHub UI. That rule *is* the
+   Ch 3.2 approval gate — without it this pipeline performs continuous deployment, not continuous
+   delivery.
+2. **Run `./infra/grant-db-identities.sh <env>`** after each environment's first apply. Managed-identity
+   database principals can only be created from a live `psql` session. Skip it and the apps start, then
+   fail Flyway with an authentication error.
+
+`main` must also be a protected branch requiring the `CI required` check (Ch 3.1.6).
 
 ## Build & verification status
 
-All four services compile against Java 25 / Spring Boot 4.1 and the Angular app builds against Angular 22 / TypeScript
-
-6. Terraform validates. The BFF login has been driven end to end against the Compose stack: the gateway serves the SPA,
-   `demo` signs in at identity-service with PKCE, and `/api/**` reaches the resource servers with a relayed Bearer token
-   while the browser holds only a session cookie. Steps that require an Azure subscription or the live GitHub repository
-   (the OIDC dance, the actual deploys) are documented above and must be run in your environment.
+All four services compile against Java 25 / Spring Boot 4.1 and the Angular app builds against Angular 22 /
+TypeScript 6. All three Terraform stacks validate with `terraform fmt` clean, and the workflows pass `actionlint`.
+The BFF login has been driven end to end against the Compose stack: the gateway serves the SPA, `demo` signs in at
+identity-service with PKCE, and `/api/**` reaches the resource servers with a relayed Bearer token while the browser
+holds only a session cookie. Steps that require an Azure subscription or the live GitHub repository (the OIDC exchange,
+the actual deploys) are documented above and must be run in your environment.
 
 The client's own suites run green: 118 Vitest unit tests over the store, services and components, and 22 Playwright
 journeys covering both roles — including swimlane and ticket drag-and-drop, a rejected move rolling back, and a live
