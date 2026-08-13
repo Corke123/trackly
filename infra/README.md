@@ -9,6 +9,7 @@ image is deliberately *not* Terraform's concern.
 ```
 infra/
 ├── bootstrap.sh              # manual, once. Remote state + GitHub federated identities.
+├── harden-repo.sh            # manual, idempotent. GitHub repository configuration (ADR 0018).
 ├── grant-db-identities.sh    # manual, once per environment. REQUIRED — see below.
 ├── modules/
 │   ├── container-app/        # one service. Holds the lifecycle{} block, hence the module.
@@ -30,8 +31,8 @@ The order matters, and each step exists for a reason.
 SUBSCRIPTION_ID=... GITHUB_OWNER=... ./infra/bootstrap.sh
 ```
 
-Then follow the three manual steps it prints (GitHub variables, the production required-reviewers rule,
-and the shared apply), and:
+Then follow the three manual steps it prints (GitHub variables, the repository configuration — which
+includes the production required-reviewers rule — and the shared apply), and:
 
 ```bash
 gh variable set ACR_NAME --body "$(terraform -chdir=infra/environments/shared output -raw acr_name)"
