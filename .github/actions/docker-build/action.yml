@@ -49,6 +49,12 @@ inputs:
     description: '1 to fail the build on findings, 0 to report only.'
     required: false
     default: '1'
+  record-severity:
+    description: >
+      Severities recorded in code scanning. Wider than `scan-severity` on purpose: the gate should block
+      on what is worth blocking on, the record should hold everything worth knowing about.
+    required: false
+    default: 'MEDIUM,HIGH,CRITICAL'
 
 outputs:
   image-tag:
@@ -113,6 +119,27 @@ runs:
         ignore-unfixed: true
         exit-code: ${{ inputs.scan-exit-code }}
         output: trivy-image.txt
+
+    - name: Scan again for the record
+      if: always()
+      uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+      with:
+        image-ref: ${{ steps.tag.outputs.image-tag }}
+        scan-type: image
+        format: sarif
+        severity: ${{ inputs.record-severity }}
+        ignore-unfixed: false
+        exit-code: '0'
+        output: trivy-image.sarif
+
+    - name: Record the scan in code scanning
+      if: >
+        always() && (github.event_name != 'pull_request' ||
+        github.event.pull_request.head.repo.full_name == github.repository)
+      uses: github/codeql-action/upload-sarif@c16c0f3f2812ec4bb3750a5ed64873fe2ce0fbef # codeql-bundle-v2.26.3
+      with:
+        sarif_file: trivy-image.sarif
+        category: trivy-${{ inputs.service }}
 
     - name: Add the scan result to the job summary
       if: always()
