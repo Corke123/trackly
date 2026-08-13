@@ -52,6 +52,38 @@ updates:
       azure-sdk:
         patterns: [ "com.azure:*" ]
 
+  - package-ecosystem: maven
+    directory: /gateway-service
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Belgrade
+    open-pull-requests-limit: 5
+    labels: [ dependencies, gateway-service ]
+    groups:
+      spring-boot:
+        patterns: [ "org.springframework.boot:*" ]
+      spring-cloud:
+        patterns: [ "org.springframework.cloud:*" ]
+
+  - package-ecosystem: npm
+    directory: /trackly-client
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Belgrade
+    open-pull-requests-limit: 5
+    labels: [ dependencies, trackly-client ]
+    groups:
+      angular:
+        patterns: [ "@angular/*", "@angular-devkit/*" ]
+      playwright:
+        patterns: [ "@playwright/*", "playwright" ]
+      vitest:
+        patterns: [ "vitest", "@vitest/*" ]
+
   - package-ecosystem: github-actions
     directory: /
     schedule:
@@ -75,6 +107,13 @@ updates:
 
   - package-ecosystem: docker
     directory: /identity-service
+    schedule:
+      interval: weekly
+      day: monday
+    labels: [ dependencies, docker ]
+
+  - package-ecosystem: docker
+    directory: /gateway-service
     schedule:
       interval: weekly
       day: monday
