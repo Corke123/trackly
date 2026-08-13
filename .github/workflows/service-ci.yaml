@@ -209,6 +209,7 @@ jobs:
       contents: read
       id-token: write
       security-events: write
+      attestations: write
     outputs:
       image-tag: ${{ steps.image.outputs.image-tag }}
     steps:

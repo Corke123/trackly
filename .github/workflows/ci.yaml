@@ -128,6 +128,7 @@ jobs:
       checks: write
       id-token: write
       security-events: write
+      attestations: write
 
   client:
     name: trackly-client

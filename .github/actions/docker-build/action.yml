@@ -141,6 +141,14 @@ runs:
         sarif_file: trivy-image.sarif
         category: trivy-${{ inputs.service }}
 
+    - name: Attest that this pipeline built the image
+      if: inputs.push == 'true'
+      uses: actions/attest-build-provenance@v4
+      with:
+        subject-name: ${{ inputs.registry }}/${{ inputs.image-name }}
+        subject-digest: ${{ steps.build.outputs.digest }}
+        push-to-registry: false
+
     - name: Add the scan result to the job summary
       if: always()
       shell: bash
