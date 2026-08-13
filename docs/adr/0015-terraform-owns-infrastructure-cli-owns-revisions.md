@@ -16,8 +16,16 @@ ignore_changes = [
 ]
 ```
 
-Terraform sets these once, on create, and never again. `infra.yaml` runs only on changes under
-`infra/**`; a normal commit never invokes Terraform at all.
+Terraform sets these once, on create, and never again. `infra.yaml` runs only on changes to Terraform
+sources — `infra/**.tf`, `infra/**.tfvars`, `infra/**.hcl` — and to the workflow itself; a normal commit
+never invokes Terraform at all.
+
+The filter is deliberately narrower than `infra/**`, which is what it was until a pull request touching
+only `infra/README.md` and a new shell script ran `terraform apply` across all three stacks on merge. The
+applies were genuine no-ops, but the job still held the `azure-container-apps` concurrency group for five
+minutes and its trailing traffic re-point issued eight control-plane writes across staging and
+production. `infra/` holds hand-run scripts and documentation as well as HCL, and only the HCL changes
+what an apply would do.
 
 This is the split ADR 0009 anticipated when it listed a blue-green deploy composite action alongside the
 build and setup ones.
