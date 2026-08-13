@@ -74,11 +74,13 @@ stage's Testcontainers work at a lower fidelity than staging offers.
   `docker-build` composite's `push`/`registry` inputs, and the stable `CI required` check name. No empty deploy workflow
   is committed, because scaffolding rots. ADR 0008 (OIDC) is unchanged.
 - ADR 0009's `blue-green-deploy` composite is not built — it would have zero call sites today.
-- Build *tooling* is not yet integrity-pinned: `distributionSha256Sum` is absent from the Maven wrapper properties, and
-  the Dockerfile builder still uses the `maven:3.9-eclipse-temurin-25-alpine`
-  image's own Maven rather than `./mvnw`, so the image build may use a different Maven version than CI and local builds
-  do. Note if revisiting: `distributionSha256Sum` is the checksum of the `.zip`, and `mvnw` silently switches to the
-  `.tar.gz` when `unzip` is missing, so an Alpine builder must install `unzip` in the same change.
+- Build *tooling* is integrity-pinned. `distributionSha256Sum` is set in all four wrapper properties, so `mvnw`
+  refuses a distribution that is not the expected Maven 3.9.16 — verified by building with a deliberately wrong
+  checksum and confirming the image build fails. The Dockerfile builder runs `./mvnw` rather than a Maven supplied
+  by the base image, so CI, local builds and the image build now agree on one Maven version; the builder stage is
+  therefore `eclipse-temurin:25-jdk-alpine` rather than a `maven:` image whose Maven nothing invokes. `unzip` is
+  installed in that stage, because `mvnw` falls back to `tar` on a `.zip` without it and dies. Base images carry a
+  digest alongside the tag.
 - Trivy **blocks** the package stage (`exit-code: 1`). It ran report-only until the baseline was measured,
   and the measurement is why it could not simply be flipped: the images carried ten fixable HIGH findings
   — four Netty artifacts, the PostgreSQL driver and three Alpine packages — so enabling the gate first
