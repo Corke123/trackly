@@ -214,16 +214,26 @@ Terraform and pipeline responsibilities divide.
 
 ### Required setup for CI
 
-These cannot be committed and must be set once in the GitHub UI:
+Repository configuration lives in [`infra/harden-repo.sh`](infra/harden-repo.sh) rather than in a list of
+clicks, because a checklist nobody re-runs is indistinguishable from a checklist nobody ran (ADR 0018).
+Read what it would do, then apply it:
 
-1. **Ruleset on `main`:** require a pull request with **0 required approvals** (reviews happen after integration; the
-   gate is the checks, not a reviewer), require the **`CI required`** status check, require branches to be up to date,
-   require linear history, and block force pushes and deletions.
-2. **Settings → Actions → General → Workflow permissions:** read-only. Jobs request more where they need it.
-3. **Create the labels** the workflows use: `broken-build`, `dependencies`, `ci`, `docker`,
-   `board-service`, `notification-service`, `identity-service`, `gateway-service`.
-   `gh issue create --label broken-build` fails if the label does not exist.
-4. **Settings → Advanced Security:** enable Dependabot alerts and security updates.
+```bash
+./infra/harden-repo.sh --dry-run all
+./infra/harden-repo.sh all
+```
+
+It is idempotent and each section can be applied on its own — `labels`, `merge-settings`,
+`workflow-permissions`, `ruleset`, `dependabot`, `environments`. What it sets:
+
+| Section | Why |
+|---|---|
+| `ruleset` | A pull request with **0 required approvals** and the **`CI required`** check must pass. Reviews happen after integration; the gate is the checks, not a reviewer (Ch 3.1.6). Also linear history, up-to-date branches, no force-push, no deletion |
+| `labels` | `broken-build`, `deployment`, `dependencies`, `ci`, `docker`, `trackly-client` and one per service. `gh issue create --label broken-build` fails outright if the label does not exist, so `notify-broken-mainline` depends on this |
+| `merge-settings` | Squash and rebase only — merge commits would be rejected by the linear-history rule after the UI offered them. Auto-merge on, so a green PR lands without a second visit |
+| `workflow-permissions` | `GITHUB_TOKEN` read-only by default; jobs request more where they need it (Ch 5.4) |
+| `dependabot` | Security alerts and automated security fixes. The version updates in `dependabot.yml` are a separate feature and work without these |
+| `environments` | `staging` and `production` deployable from `main` only, and required reviewers on `production` — see [Deploying to Azure](#deploying-to-azure) |
 
 ## Deploying to Azure
 
@@ -284,17 +294,23 @@ SUBSCRIPTION_ID=... GITHUB_OWNER=... ./infra/bootstrap.sh
 ```
 
 It creates the remote-state storage account and the three GitHub federated identities (ADR 0014), then
-prints the `gh variable set` commands for the repository and environment variables. Two things it cannot
-do for you:
+prints the `gh variable set` commands for the repository and environment variables. Two things it does
+not do:
 
-1. **Add a required-reviewers rule to the `production` environment** in the GitHub UI. That rule *is* the
-   Ch 3.2 approval gate — without it this pipeline performs continuous deployment, not continuous
-   delivery.
+1. **Apply the repository configuration.** Run [`./infra/harden-repo.sh all`](infra/harden-repo.sh) — see
+   [Required setup for CI](#required-setup-for-ci). Its `environments` section installs the required
+   reviewers on `production`, and **that rule is the Ch 3.2 approval gate**: without it this pipeline
+   performs continuous deployment, not continuous delivery.
 2. **Run `./infra/grant-db-identities.sh <env>`** after each environment's first apply. Managed-identity
    database principals can only be created from a live `psql` session. Skip it and the apps start, then
    fail Flyway with an authentication error.
 
-`main` must also be a protected branch requiring the `CI required` check (Ch 3.1.6).
+One consequence of the approval gate is worth knowing before you rely on it. A job awaiting environment
+approval holds its concurrency group, and `deploy-staging`, `deploy-production` and `infra.yaml`'s apply
+deliberately share the `azure-container-apps` group so Terraform and blue-green releases cannot race. So
+an unapproved production deploy queues the *next* merge's staging deploy, and the merge after that
+cancels the queued one. **Approve or reject each production deploy before merging the next pull
+request** (ADR 0018).
 
 ## Build & verification status
 

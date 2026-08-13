@@ -147,9 +147,13 @@ done
    bind a GitHub environment without changing its OIDC subject away from what
    the infra identity accepts.
 
-3. In the GitHub UI, add a **required reviewers** protection rule to the
-   'production' environment. That rule is the manual approval gate — without
-   it, this pipeline performs continuous deployment, not continuous delivery.
+3. Apply the repository configuration, which includes the **required reviewers**
+   rule on the 'production' environment. That rule is the manual approval gate —
+   without it, this pipeline performs continuous deployment, not continuous
+   delivery.
+
+./infra/harden-repo.sh --dry-run all
+./infra/harden-repo.sh all
 
 4. Apply the shared stack, then follow infra/README.md:
 
