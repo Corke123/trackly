@@ -4,7 +4,7 @@
 # browser talks to a single origin (ADR 0006).
 #   docker build -f gateway-service/Dockerfile .
 
-FROM node:24-alpine AS frontend
+FROM node:26-alpine AS frontend
 WORKDIR /app
 
 COPY trackly-client/package.json trackly-client/package-lock.json ./
