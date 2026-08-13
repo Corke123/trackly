@@ -19,7 +19,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: deploy-${{ inputs.environment }}
+  group: azure-container-apps
   cancel-in-progress: false
 
 jobs:
