@@ -22,7 +22,8 @@ RUN java -Djarmode=tools -jar target/*.jar extract --layers --destination extrac
 FROM eclipse-temurin:25-jre-alpine AS runtime
 WORKDIR /app
 
-RUN apk add --no-cache dumb-init=1.2.5-r3 && \
+RUN apk --no-cache upgrade && \
+    apk add --no-cache dumb-init=1.2.5-r3 && \
     addgroup -S appuser && \
     adduser -S -s /bin/false -G appuser appuser && \
     chown -R appuser:appuser /app

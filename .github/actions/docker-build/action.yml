@@ -48,7 +48,7 @@ inputs:
   scan-exit-code:
     description: '1 to fail the build on findings, 0 to report only.'
     required: false
-    default: '0'
+    default: '1'
 
 outputs:
   image-tag:
