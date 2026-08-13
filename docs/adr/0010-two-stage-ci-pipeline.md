@@ -79,8 +79,14 @@ stage's Testcontainers work at a lower fidelity than staging offers.
   image's own Maven rather than `./mvnw`, so the image build may use a different Maven version than CI and local builds
   do. Note if revisiting: `distributionSha256Sum` is the checksum of the `.zip`, and `mvnw` silently switches to the
   `.tar.gz` when `unzip` is missing, so an Alpine builder must install `unzip` in the same change.
-- Trivy runs in report-only mode (`exit-code: 0`) until the baseline finding count for
-  `eclipse-temurin:25-jre-alpine` is known; flipping it to `1` is a one-input change.
+- Trivy **blocks** the package stage (`exit-code: 1`). It ran report-only until the baseline was measured,
+  and the measurement is why it could not simply be flipped: the images carried ten fixable HIGH findings
+  — four Netty artifacts, the PostgreSQL driver and three Alpine packages — so enabling the gate first
+  would have failed every build. The dependencies were pinned and the base packages upgraded until all
+  four images scanned clean, and only then was the gate turned on.
+- `ignore-unfixed: true` still applies, so only vulnerabilities with an available fix can fail a build. An
+  unfixable base-image CVE cannot block delivery, which is what keeps a blocking gate usable rather than a
+  standing outage.
 
 > **Continued by [ADR 0015](0015-terraform-owns-infrastructure-cli-owns-revisions.md).** The seams named
 > here are now used: `docker-build` pushes to ACR on `main`, and the deploy jobs live in `ci.yaml` outside
