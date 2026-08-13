@@ -3,10 +3,10 @@ name: Infrastructure
 on:
   pull_request:
     branches: [ main ]
-    paths: [ 'infra/**', '.github/workflows/infra.yaml' ]
+    paths: [ 'infra/**.tf', 'infra/**.tfvars', 'infra/**.hcl', '.github/workflows/infra.yaml' ]
   push:
     branches: [ main ]
-    paths: [ 'infra/**', '.github/workflows/infra.yaml' ]
+    paths: [ 'infra/**.tf', 'infra/**.tfvars', 'infra/**.hcl', '.github/workflows/infra.yaml' ]
   workflow_dispatch:
     inputs:
       stack:
