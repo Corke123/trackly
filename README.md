@@ -315,7 +315,8 @@ request** (ADR 0018).
 ## Build & verification status
 
 All four services compile against Java 25 / Spring Boot 4.1 and the Angular app builds against Angular 22 /
-TypeScript 6. All three Terraform stacks validate with `terraform fmt` clean, and the workflows pass `actionlint`.
+TypeScript 6. All three Terraform stacks validate with `terraform fmt` clean, and the workflows pass `actionlint`
+and `zizmor` on every pull request rather than on request.
 The BFF login has been driven end to end against the Compose stack: the gateway serves the SPA, `demo` signs in at
 identity-service with PKCE, and `/api/**` reaches the resource servers with a relayed Bearer token while the browser
 holds only a session cookie. Steps that require an Azure subscription or the live GitHub repository (the OIDC exchange,
