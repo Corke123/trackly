@@ -117,9 +117,11 @@ runs:
     - name: Add the scan result to the job summary
       if: always()
       shell: bash
+      env:
+        SCAN_SEVERITY: ${{ inputs.scan-severity }}
       run: |
         {
-          echo "<details><summary>Trivy image scan (${{ inputs.scan-severity }})</summary>"
+          echo "<details><summary>Trivy image scan (${SCAN_SEVERITY})</summary>"
           echo
           echo '```'
           cat trivy-image.txt 2>/dev/null || echo "no scan output"

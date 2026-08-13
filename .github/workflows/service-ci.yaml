@@ -144,11 +144,13 @@ jobs:
           java-version: ${{ inputs.java-version }}
 
       - name: Pre-pull Testcontainers images in parallel
+        env:
+          SERVICE: ${{ inputs.service }}
         run: |
           set -euo pipefail
           list=.ci/testcontainers-images.txt
           if [ ! -f "$list" ]; then
-            echo "No $list for ${{ inputs.service }}; letting Testcontainers pull lazily."
+            echo "No $list for ${SERVICE}; letting Testcontainers pull lazily."
             exit 0
           fi
           start=$SECONDS
