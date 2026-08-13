@@ -5,7 +5,6 @@
 **/.git/
 **/.idea/
 **/*.iml
-**/.mvn/
 trackly-client/dist/
 trackly-client/.angular/
 trackly-client/coverage/
