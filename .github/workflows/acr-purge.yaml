@@ -26,6 +26,10 @@ jobs:
       contents: read
       id-token: write
     steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
       - uses: azure/login@f5d393ae46f8fde4be8b75f32e3fc50e654ad0ca # v3.0.1
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
@@ -36,35 +40,4 @@ jobs:
         env:
           KEEP_DAYS: ${{ inputs.keep-days || '30' }}
           ACR: ${{ vars.ACR_NAME }}
-        run: |
-          set -euo pipefail
-
-          protected=""
-          for env_name in staging production; do
-            rg="rg-trackly-${env_name}"
-            for service in identity board notification gateway; do
-              image=$(az containerapp show -n "${service}-${env_name}" -g "$rg" \
-                --query "properties.template.containers[0].image" -o tsv 2>/dev/null || true)
-              [ -n "$image" ] && protected="${protected} ${image##*:}"
-            done
-          done
-          echo "Protected tags:${protected:- none}"
-
-          purge="acr purge"
-          for repo in identity-service board-service notification-service gateway-service; do
-            purge="${purge} --filter 'trackly/${repo}:^sha-.*$'"
-          done
-          purge="${purge} --ago ${KEEP_DAYS}d --untagged --keep 3"
-
-          az acr run --registry "$ACR" --cmd "$purge" /dev/null
-
-          {
-            echo "## ACR purge"
-            echo
-            echo "| | |"
-            echo "|---|---|"
-            echo "| Registry | \`${ACR}\` |"
-            echo "| Kept | sha- tags newer than ${KEEP_DAYS} days, plus the 3 newest per repository |"
-            echo "| Protected | \`${protected:- none}\` (currently deployed) |"
-            echo "| Also removed | untagged manifests |"
-          } >> "$GITHUB_STEP_SUMMARY"
+        run: .github/scripts/acr-purge.sh
