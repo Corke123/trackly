@@ -14,25 +14,25 @@ terraform init -input=false \
 args=(
   -input=false
   -lock-timeout=5m
-  -var "subscription_id=${AZURE_SUBSCRIPTION_ID}"
+  -var "SUBSCRIPTION_ID=${AZURE_SUBSCRIPTION_ID}"
 )
 
 if [[ "$STACK" == shared ]]; then
   args+=(
-    -var "operator_object_id=${OPERATOR_OBJECT_ID}"
-    -var "operator_ip=${OPERATOR_IP}"
-    -var "github_infra_identity_principal_id=${INFRA_IDENTITY_PRINCIPAL_ID}"
-    -var "budget_alert_email=${BUDGET_ALERT_EMAIL}"
+    -var "OPERATOR_OBJECT_ID=${OPERATOR_OBJECT_ID}"
+    -var "OPERATOR_IP=${OPERATOR_IP}"
+    -var "GITHUB_INFRA_IDENTITY_PRINCIPAL_ID=${INFRA_IDENTITY_PRINCIPAL_ID}"
+    -var "BUDGET_ALERT_EMAIL=${BUDGET_ALERT_EMAIL}"
   )
 else
   suffix=${STACK^^}
   secret="CLIENT_SECRET_${suffix}"
   hash="CLIENT_SECRET_HASH_${suffix}"
-  export TF_VAR_client_secret="${!secret}"
-  export TF_VAR_client_secret_bcrypt="${!hash}"
+  export TF_VAR_CLIENT_SECRET="${!secret}"
+  export TF_VAR_CLIENT_SECRET_BCRYPT="${!hash}"
   args+=(
-    -var "tfstate_resource_group=${TFSTATE_RESOURCE_GROUP}"
-    -var "tfstate_storage_account=${TFSTATE_STORAGE_ACCOUNT}"
+    -var "TFSTATE_RESOURCE_GROUP=${TFSTATE_RESOURCE_GROUP}"
+    -var "TFSTATE_STORAGE_ACCOUNT=${TFSTATE_STORAGE_ACCOUNT}"
   )
 fi
 

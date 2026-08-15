@@ -2,8 +2,8 @@ data "terraform_remote_state" "shared" {
   backend = "azurerm"
 
   config = {
-    resource_group_name  = var.tfstate_resource_group
-    storage_account_name = var.tfstate_storage_account
+    resource_group_name  = var.TFSTATE_RESOURCE_GROUP
+    storage_account_name = var.TFSTATE_STORAGE_ACCOUNT
     container_name       = var.tfstate_container
     key                  = "shared.tfstate"
     use_azuread_auth     = true
@@ -17,8 +17,8 @@ module "environment" {
   location  = var.location
   image_tag = var.image_tag
 
-  client_secret        = var.client_secret
-  client_secret_bcrypt = var.client_secret_bcrypt
+  client_secret        = var.CLIENT_SECRET
+  client_secret_bcrypt = var.CLIENT_SECRET_BCRYPT
 
   acr_id                               = data.terraform_remote_state.shared.outputs.acr_id
   acr_login_server                     = data.terraform_remote_state.shared.outputs.acr_login_server

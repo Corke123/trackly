@@ -44,7 +44,7 @@ image tag does not exist in the registry fails to provision, and the apply error
 later. The apps default to `:latest`, which CI publishes on `main`.
 
 ```bash
-terraform -chdir=infra/environments/staging apply -var subscription_id=... -var tfstate_resource_group=... -var tfstate_storage_account=...
+terraform -chdir=infra/environments/staging apply -var SUBSCRIPTION_ID=... -var TFSTATE_RESOURCE_GROUP=... -var TFSTATE_STORAGE_ACCOUNT=...
 ./infra/grant-db-identities.sh staging
 ```
 

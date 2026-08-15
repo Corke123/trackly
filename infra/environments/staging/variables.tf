@@ -1,4 +1,4 @@
-variable "subscription_id" {
+variable "SUBSCRIPTION_ID" {
   type = string
 }
 
@@ -13,23 +13,23 @@ variable "image_tag" {
   default     = "latest"
 }
 
-variable "client_secret" {
-  description = "Plaintext OAuth2 client secret. Supplied as TF_VAR_client_secret."
+variable "CLIENT_SECRET" {
+  description = "Plaintext OAuth2 client secret. Supplied as TF_VAR_CLIENT_SECRET."
   type        = string
   sensitive   = true
 }
 
-variable "client_secret_bcrypt" {
-  description = "The same secret as a {bcrypt} hash. Supplied as TF_VAR_client_secret_bcrypt."
+variable "CLIENT_SECRET_BCRYPT" {
+  description = "The same secret as a {bcrypt} hash. Supplied as TF_VAR_CLIENT_SECRET_BCRYPT."
   type        = string
   sensitive   = true
 }
 
-variable "tfstate_resource_group" {
+variable "TFSTATE_RESOURCE_GROUP" {
   type = string
 }
 
-variable "tfstate_storage_account" {
+variable "TFSTATE_STORAGE_ACCOUNT" {
   type = string
 }
 
