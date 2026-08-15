@@ -31,6 +31,12 @@ revision is kept warm so rollback is a single traffic re-point.
   is owed there is automated rollback of **staging**, where no approval gate applies, and it remains
   unbuilt.
 - Requires services to be stateless and safe to run as two concurrent revisions briefly.
+- The release half — new revision, provisioning wait, pre-traffic verification — runs concurrently for
+  every changed service, so a four-service release costs the slowest service rather than their sum
+  (ADR 0009). Traffic shifts stay sequential. One consequence: if *any* service fails its gate, no
+  service's traffic is shifted, where the old sequential deploy had already cut over the services ahead
+  of the failure. An environment left wholly on its previous revisions is the easier state to reason
+  about during an incident.
 - The health signal driving the gate is a Spring Boot Actuator endpoint (see ADR 0008 for
   why we avoid heavier observability for the gate).
 
