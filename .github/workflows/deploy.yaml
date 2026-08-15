@@ -59,48 +59,15 @@ jobs:
           fqdn=$(az containerapp show -n "$APP" -g "$RG" --query "properties.configuration.ingress.fqdn" -o tsv)
           echo "fqdn=${fqdn}" >> "$GITHUB_OUTPUT"
 
-      - name: identity-service
-        if: contains(fromJSON(inputs.services), 'identity-service')
-        uses: ./.github/actions/blue-green-deploy
-        with:
-          app-name: identity-${{ inputs.environment }}
-          resource-group: ${{ vars.RESOURCE_GROUP }}
-          image: ${{ vars.ACR_LOGIN_SERVER }}/trackly/identity-service:sha-${{ github.sha }}
-          revision-suffix: ${{ steps.names.outputs.suffix }}
-          external: 'true'
-          expected-sha: ${{ github.sha }}
-
-      - name: board-service
-        if: contains(fromJSON(inputs.services), 'board-service')
-        uses: ./.github/actions/blue-green-deploy
-        with:
-          app-name: board-${{ inputs.environment }}
-          resource-group: ${{ vars.RESOURCE_GROUP }}
-          image: ${{ vars.ACR_LOGIN_SERVER }}/trackly/board-service:sha-${{ github.sha }}
-          revision-suffix: ${{ steps.names.outputs.suffix }}
-          expected-sha: ${{ github.sha }}
-
-      - name: notification-service
-        if: contains(fromJSON(inputs.services), 'notification-service')
-        uses: ./.github/actions/blue-green-deploy
-        with:
-          app-name: notification-${{ inputs.environment }}
-          resource-group: ${{ vars.RESOURCE_GROUP }}
-          image: ${{ vars.ACR_LOGIN_SERVER }}/trackly/notification-service:sha-${{ github.sha }}
-          revision-suffix: ${{ steps.names.outputs.suffix }}
-          expected-sha: ${{ github.sha }}
-
-      - id: gateway
-        name: gateway-service
-        if: contains(fromJSON(inputs.services), 'gateway-service')
-        uses: ./.github/actions/blue-green-deploy
-        with:
-          app-name: gateway-${{ inputs.environment }}
-          resource-group: ${{ vars.RESOURCE_GROUP }}
-          image: ${{ vars.ACR_LOGIN_SERVER }}/trackly/gateway-service:sha-${{ github.sha }}
-          revision-suffix: ${{ steps.names.outputs.suffix }}
-          external: 'true'
-          expected-sha: ${{ github.sha }}
+      - name: Release every changed service
+        env:
+          SERVICES: ${{ inputs.services }}
+          ENVIRONMENT: ${{ inputs.environment }}
+          RG: ${{ vars.RESOURCE_GROUP }}
+          REGISTRY: ${{ vars.ACR_LOGIN_SERVER }}
+          SUFFIX: ${{ steps.names.outputs.suffix }}
+          EXPECTED_SHA: ${{ github.sha }}
+        run: .github/scripts/blue-green-deploy.sh
 
       - name: Report live traffic
         if: always()
