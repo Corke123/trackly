@@ -51,6 +51,7 @@ jobs:
             shared:
               - '.github/workflows/**'
               - '.github/actions/**'
+              - '.github/scripts/**'
               - 'docker-compose.yaml'
 
       - id: select
