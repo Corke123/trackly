@@ -17,7 +17,7 @@ args=(
   -var "subscription_id=${AZURE_SUBSCRIPTION_ID}"
 )
 
-if [ "$STACK" = shared ]; then
+if [[ "$STACK" == shared ]]; then
   args+=(
     -var "operator_object_id=${OPERATOR_OBJECT_ID}"
     -var "operator_ip=${OPERATOR_IP}"
