@@ -1,7 +1,8 @@
 name: Build container image
 description: >
   Layers the jar the commit stage already built and gated onto a hardened runtime with buildx,
-  stamps OCI provenance labels onto the image, and scans it with Trivy. `push` defaults to
+  stamps OCI provenance labels onto the image, and scans it with Trivy. No layer cache: nothing
+  is compiled here, so the only cacheable layer is one `apk` invocation. `push` defaults to
   false so CI only verifies the artefact; CD flips it to true and supplies a registry.
   On the default branch it also publishes `latest`, which only a first `terraform apply` consumes.
 
@@ -93,8 +94,6 @@ runs:
         platforms: linux/amd64
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
-        cache-from: type=gha,scope=${{ inputs.service }}
-        cache-to: type=gha,mode=max,scope=${{ inputs.service }}
         provenance: false
 
     - name: Scan the image with Trivy
