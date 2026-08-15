@@ -58,7 +58,7 @@ release() {
     case "$state" in
       Provisioned) break ;;
       Failed | Degraded)
-        echo "::error::Revision ${revision} provisioning ${state}"
+        echo "::error::Revision ${revision} provisioning ${state}" >&2
         return 1
         ;;
       *)
@@ -68,7 +68,7 @@ release() {
     esac
   done
   if [[ "$state" != "Provisioned" ]]; then
-    echo "::error::Revision ${revision} did not provision within 10 minutes"
+    echo "::error::Revision ${revision} did not provision within 10 minutes" >&2
     return 1
   fi
   echo "Provisioned"
@@ -85,7 +85,7 @@ release() {
   deadline=$(($(date +%s) + HEALTH_TIMEOUT))
   until curl -fsS --max-time 30 "${url}/actuator/health" >/dev/null 2>&1; do
     if [[ "$(date +%s)" -ge "$deadline" ]]; then
-      echo "::error::${revision} did not become healthy within ${HEALTH_TIMEOUT}s"
+      echo "::error::${revision} did not become healthy within ${HEALTH_TIMEOUT}s" >&2
       return 1
     fi
     sleep 10
@@ -94,7 +94,7 @@ release() {
 
   revision_sha=$(curl -fsS --max-time 30 "${url}/actuator/info" | jq -r '.build.revision // empty')
   if [[ "$revision_sha" != "$EXPECTED_SHA" ]]; then
-    echo "::error::${revision} reports build.revision=${revision_sha:-<none>}, expected ${EXPECTED_SHA}"
+    echo "::error::${revision} reports build.revision=${revision_sha:-<none>}, expected ${EXPECTED_SHA}" >&2
     return 1
   fi
   echo "Verified build.revision=${revision_sha}"
@@ -166,7 +166,7 @@ for service in $selected; do
 done
 
 if [[ -n "$failed" ]]; then
-  echo "::error::Release failed for:${failed% }. No traffic was shifted."
+  echo "::error::Release failed for:${failed% }. No traffic was shifted." >&2
   summarise
   exit 1
 fi
