@@ -133,7 +133,7 @@ jobs:
         working-directory: trackly-client
         run: |
           set -euo pipefail
-          npm ci
+          npm ci --ignore-scripts
           npm run build
 
       - name: Upload the bundle
