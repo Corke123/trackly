@@ -19,10 +19,10 @@ on:
         required: false
         type: boolean
         default: true
-      docker-context:
+      spa-artifact:
         description: >
-          Docker build context, for a service whose image needs more than its own directory.
-          Defaults to the service directory.
+          Artifact holding a built single-page app to ship alongside this service's jar, served
+          from `file:/app/static/` (ADR 0006). Empty for a service that ships no front-end.
         required: false
         type: string
         default: ''
@@ -225,6 +225,13 @@ jobs:
           name: ${{ inputs.service }}-jar
           path: ${{ inputs.service }}/target
 
+      - name: Download the single-page app
+        if: inputs.spa-artifact != ''
+        uses: actions/download-artifact@v7
+        with:
+          name: ${{ inputs.spa-artifact }}
+          path: ${{ inputs.service }}/static
+
       - name: Sign in to Azure
         if: inputs.push-image
         uses: azure/login@f5d393ae46f8fde4be8b75f32e3fc50e654ad0ca # v3.0.1
@@ -242,7 +249,6 @@ jobs:
         uses: ./.github/actions/docker-build
         with:
           service: ${{ inputs.service }}
-          context: ${{ inputs.docker-context }}
           image-name: trackly/${{ inputs.service }}
           version: ${{ needs.commit-stage.outputs.version }}
           git-sha: ${{ github.sha }}

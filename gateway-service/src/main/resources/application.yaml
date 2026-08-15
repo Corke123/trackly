@@ -11,6 +11,9 @@ server:
 spring:
   application:
     name: gateway-service
+  web:
+    resources:
+      static-locations: ${TRACKLY_STATIC_LOCATIONS:classpath:/static/}
   security:
     oauth2:
       client:

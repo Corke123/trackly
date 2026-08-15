@@ -8,8 +8,12 @@ import org.springframework.boot.webtestclient.autoconfigure.AutoConfigureWebTest
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import org.unibl.etf.pisio.gatewayservice.GatewayTestSupport;
+
+import java.net.URL;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -26,6 +30,16 @@ class BundledSpaIntegrationTest extends GatewayTestSupport {
 
     @Autowired
     private WebTestClient webTestClient;
+
+    @DynamicPropertySource
+    static void serveTheSpaFromAFileLocationAsTheImageDoes(DynamicPropertyRegistry registry) {
+        URL bundle = BundledSpaIntegrationTest.class.getResource("/static/");
+        if (bundle == null || !"file".equals(bundle.getProtocol())) {
+            throw new IllegalStateException(
+                    "The bundled SPA must be served from a file location, as the image serves it, but was " + bundle);
+        }
+        registry.add("spring.web.resources.static-locations", bundle::toString);
+    }
 
     @Test
     @DisplayName("Given a deep link into the SPA, when the browser navigates to it, then the SPA shell is served so the Angular router can take over")

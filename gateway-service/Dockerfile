@@ -1,39 +1,10 @@
 # syntax=docker/dockerfile:1
-#
-# Built from the repository root, not from gateway-service/: the image bundles the SPA so the
-# browser talks to a single origin (ADR 0006).
-#   docker build -f gateway-service/Dockerfile .
 
-FROM node:24-alpine AS frontend
+FROM eclipse-temurin:25-jre-alpine AS extractor
 WORKDIR /app
 
-COPY trackly-client/package.json trackly-client/package-lock.json ./
-RUN npm ci
-
-COPY trackly-client/ ./
-RUN npm run build
-
-FROM maven:3.9-eclipse-temurin-25-alpine AS builder
-WORKDIR /app
-
-COPY gateway-service/pom.xml .
-RUN --mount=type=cache,target=/root/.m2 mvn -B -q dependency:go-offline
-
-ARG GIT_SHA=unknown
-ARG BUILD_NUMBER=0
-ARG BUILD_URL=local
-
-COPY gateway-service/src ./src
-# Spring serves classpath:/static/**, so the built SPA becomes part of the jar.
-COPY --from=frontend /app/dist/trackly-client/browser/ ./src/main/resources/static/
-
-RUN --mount=type=cache,target=/root/.m2 mvn -B -q clean package -DskipTests \
-      -Dgit.commit.id="$GIT_SHA" \
-      -Dci.build.number="$BUILD_NUMBER" \
-      -Dci.build.url="$BUILD_URL"
-
-RUN java -Djarmode=tools -jar target/*.jar extract --layers --destination extracted && \
-    mv extracted/application/*.jar extracted/application/app.jar
+COPY target/*.jar app.jar
+RUN java -Djarmode=tools -jar app.jar extract --layers --destination extracted
 
 FROM eclipse-temurin:25-jre-alpine AS runtime
 WORKDIR /app
@@ -46,13 +17,15 @@ RUN apk --no-cache upgrade && \
 
 USER appuser
 
-COPY --from=builder /app/extracted/dependencies/ ./
-COPY --from=builder /app/extracted/spring-boot-loader/ ./
-COPY --from=builder /app/extracted/snapshot-dependencies/ ./
-COPY --from=builder /app/extracted/application/ ./
+COPY --from=extractor /app/extracted/dependencies/ ./
+COPY --from=extractor /app/extracted/spring-boot-loader/ ./
+COPY --from=extractor /app/extracted/snapshot-dependencies/ ./
+COPY --from=extractor /app/extracted/application/ ./
 
-# The image carries the SPA, so it serves it rather than proxying a dev server.
+COPY static/ ./static/
+
 ENV TRACKLY_SERVE_SPA=true
+ENV TRACKLY_STATIC_LOCATIONS=file:/app/static/
 
 EXPOSE 8080
 
