@@ -34,6 +34,24 @@ env:
   TFSTATE_CONTAINER: ${{ vars.TFSTATE_CONTAINER }}
 
 jobs:
+  format:
+    name: Check formatting
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: 1.15.4
+
+      - name: Check formatting
+        working-directory: infra
+        run: terraform fmt -check -recursive
+
   plan:
     name: Plan ${{ matrix.stack }}
     if: github.event_name == 'pull_request'
@@ -55,10 +73,6 @@ jobs:
       - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:
           terraform_version: 1.15.4
-
-      - name: Check formatting
-        working-directory: infra
-        run: terraform fmt -check -recursive
 
       - name: Plan
         env:
