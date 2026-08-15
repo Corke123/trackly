@@ -3,10 +3,10 @@ name: Infrastructure
 on:
   pull_request:
     branches: [ main ]
-    paths: [ 'infra/**.tf', 'infra/**.tfvars', 'infra/**.hcl', '.github/workflows/infra.yaml', '.github/scripts/terraform-stack.sh' ]
+    paths: [ 'infra/**.tf', 'infra/**.tfvars', 'infra/**.hcl', '.github/workflows/infra.yaml', '.github/scripts/terraform-stack.sh', '.github/scripts/shift-traffic.sh' ]
   push:
     branches: [ main ]
-    paths: [ 'infra/**.tf', 'infra/**.tfvars', 'infra/**.hcl', '.github/workflows/infra.yaml', '.github/scripts/terraform-stack.sh' ]
+    paths: [ 'infra/**.tf', 'infra/**.tfvars', 'infra/**.hcl', '.github/workflows/infra.yaml', '.github/scripts/terraform-stack.sh', '.github/scripts/shift-traffic.sh' ]
   workflow_dispatch:
     inputs:
       stack:
@@ -152,16 +152,4 @@ jobs:
       - name: Shift traffic to the newest revision
         env:
           STACKS: ${{ steps.stacks.outputs.list }}
-        run: |
-          set -euo pipefail
-          for stack in $STACKS; do
-            [ "$stack" = "shared" ] && continue
-            rg="rg-trackly-${stack}"
-            for service in identity board notification gateway; do
-              app="${service}-${stack}"
-              latest=$(az containerapp show -n "$app" -g "$rg" --query properties.latestRevisionName -o tsv 2>/dev/null || true)
-              [ -z "$latest" ] && continue
-              az containerapp ingress traffic set -n "$app" -g "$rg" --revision-weight "${latest}=100" --output none
-              echo "${app} -> ${latest}"
-            done
-          done
+        run: .github/scripts/shift-traffic.sh
