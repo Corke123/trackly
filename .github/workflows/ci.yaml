@@ -390,30 +390,16 @@ jobs:
       contents: read
       issues: write
     steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
       - name: Open or update the broken-build issue
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: |
-          set -euo pipefail
-          SHORT="${GITHUB_SHA:0:7}"
-          BODY=$(cat <<EOF
-          CI failed on \`main\` at \`${GITHUB_SHA}\` (@${GITHUB_ACTOR}).
-
-          Run: ${RUN_URL}
-
-          Fixing a broken mainline takes priority over new work: revert the offending commit,
-          or fix forward if the fix is obvious and small.
-          EOF
-          )
-          EXISTING=$(gh issue list --label broken-build --state open --json number --jq '.[0].number // empty')
-          if [ -n "$EXISTING" ]; then
-            gh issue comment "$EXISTING" --body "$BODY"
-          else
-            gh issue create --title "Broken mainline: CI failed at ${SHORT}" \
-              --label broken-build --body "$BODY"
-          fi
+        run: .github/scripts/notify-broken-mainline.sh
 
   notify-failed-release:
     name: Report failed release
@@ -425,6 +411,10 @@ jobs:
       contents: read
       issues: write
     steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
       - name: Open or update the deployment issue
         env:
           GH_TOKEN: ${{ github.token }}
@@ -433,29 +423,4 @@ jobs:
           WAKE: ${{ needs.wake-database.result }}
           STAGING: ${{ needs.deploy-staging.result }}
           ACCEPTANCE: ${{ needs.acceptance-staging.result }}
-        run: |
-          set -euo pipefail
-          SHORT="${GITHUB_SHA:0:7}"
-          BODY=$(cat <<EOF
-          The release of \`${GITHUB_SHA}\` did not reach production.
-
-          | Stage | Result |
-          |---|---|
-          | Wake the database | ${WAKE} |
-          | Deploy staging | ${STAGING} |
-          | Acceptance tests (staging) | ${ACCEPTANCE} |
-
-          Run: ${RUN_URL}
-
-          The commit stage passed, so \`main\` is not broken — the artefacts exist and the
-          previous revision is still serving. Roll back with the **Rollback** workflow if a
-          staging revision took traffic before the failure.
-          EOF
-          )
-          EXISTING=$(gh issue list --label deployment --state open --json number --jq '.[0].number // empty')
-          if [ -n "$EXISTING" ]; then
-            gh issue comment "$EXISTING" --body "$BODY"
-          else
-            gh issue create --title "Failed release: ${SHORT} did not reach production" \
-              --label deployment --body "$BODY"
-          fi
+        run: .github/scripts/notify-failed-release.sh
