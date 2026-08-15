@@ -51,6 +51,7 @@ jobs:
             shared:
               - '.github/workflows/**'
               - '.github/actions/**'
+              - '.github/scripts/**'
               - 'docker-compose.yaml'
 
       - id: select
@@ -60,29 +61,7 @@ jobs:
           SHARED: ${{ steps.filter.outputs.shared }}
           CLIENT: ${{ steps.filter.outputs.trackly-client }}
           FORCE_ALL: ${{ inputs.force-all }}
-        run: |
-          set -euo pipefail
-          ALL='["board-service","notification-service","identity-service","gateway-service"]'
-          if [ "$SHARED" = "true" ] || [ "$FORCE_ALL" = "true" ]; then
-            SERVICES="$ALL"
-            CLIENT_BUILD=true
-            REASON="shared paths changed"
-          else
-            SERVICES=$(printf '%s' "$CHANGED" | jq -c 'map(select(. != "shared" and . != "trackly-client"))')
-            CLIENT_BUILD="$CLIENT"
-            REASON="path filter"
-          fi
-          echo "services=$SERVICES" >> "$GITHUB_OUTPUT"
-          echo "client=$CLIENT_BUILD" >> "$GITHUB_OUTPUT"
-          {
-            echo "## Change detection"
-            echo
-            echo "| | |"
-            echo "|---|---|"
-            echo "| Reason | $REASON |"
-            echo "| Services to build | \`$SERVICES\` |"
-            echo "| Build the client | \`$CLIENT_BUILD\` |"
-          } >> "$GITHUB_STEP_SUMMARY"
+        run: .github/scripts/select-services.sh
 
   lint:
     name: Lint workflows
@@ -167,39 +146,6 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: azure/login@f5d393ae46f8fde4be8b75f32e3fc50e654ad0ca # v3.0.1
-        with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Start the server if hibernate.yaml stopped it
-        run: |
-          set -euo pipefail
-          server=$(az postgres flexible-server list -g rg-trackly-shared --query "[0].name" -o tsv)
-          state=$(az postgres flexible-server show -n "$server" -g rg-trackly-shared --query state -o tsv)
-          echo "$server is $state"
-          if [ "$state" != "Ready" ]; then
-            az postgres flexible-server start -n "$server" -g rg-trackly-shared --output none
-            echo "Started $server"
-          fi
-
-  deploy-staging:
-    name: Deploy staging
-    if: github.ref == 'refs/heads/main' && needs.detect-changes.outputs.services != '[]'
-    needs: [ detect-changes, ci, wake-database ]
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    environment: staging
-    concurrency:
-      group: azure-container-apps
-      cancel-in-progress: false
-    permissions:
-      contents: read
-      id-token: write
-    outputs:
-      gateway-url: ${{ steps.gateway.outputs.fqdn }}
-    steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
@@ -210,72 +156,22 @@ jobs:
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
-      - id: names
-        name: Derive the revision suffix
-        run: |
-          set -euo pipefail
-          echo "suffix=${GITHUB_SHA:0:7}-${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+      - name: Start the server if hibernate.yaml stopped it
+        env:
+          ACTION: start
+        run: .github/scripts/hibernate.sh
 
-      - name: identity-service
-        if: contains(fromJSON(needs.detect-changes.outputs.services), 'identity-service')
-        uses: ./.github/actions/blue-green-deploy
-        with:
-          app-name: identity-staging
-          resource-group: ${{ vars.RESOURCE_GROUP }}
-          image: ${{ vars.ACR_LOGIN_SERVER }}/trackly/identity-service:sha-${{ github.sha }}
-          revision-suffix: ${{ steps.names.outputs.suffix }}
-          external: 'true'
-          expected-sha: ${{ github.sha }}
-
-      - name: board-service
-        if: contains(fromJSON(needs.detect-changes.outputs.services), 'board-service')
-        uses: ./.github/actions/blue-green-deploy
-        with:
-          app-name: board-staging
-          resource-group: ${{ vars.RESOURCE_GROUP }}
-          image: ${{ vars.ACR_LOGIN_SERVER }}/trackly/board-service:sha-${{ github.sha }}
-          revision-suffix: ${{ steps.names.outputs.suffix }}
-          expected-sha: ${{ github.sha }}
-
-      - name: notification-service
-        if: contains(fromJSON(needs.detect-changes.outputs.services), 'notification-service')
-        uses: ./.github/actions/blue-green-deploy
-        with:
-          app-name: notification-staging
-          resource-group: ${{ vars.RESOURCE_GROUP }}
-          image: ${{ vars.ACR_LOGIN_SERVER }}/trackly/notification-service:sha-${{ github.sha }}
-          revision-suffix: ${{ steps.names.outputs.suffix }}
-          expected-sha: ${{ github.sha }}
-
-      - id: gateway
-        name: gateway-service
-        if: contains(fromJSON(needs.detect-changes.outputs.services), 'gateway-service')
-        uses: ./.github/actions/blue-green-deploy
-        with:
-          app-name: gateway-staging
-          resource-group: ${{ vars.RESOURCE_GROUP }}
-          image: ${{ vars.ACR_LOGIN_SERVER }}/trackly/gateway-service:sha-${{ github.sha }}
-          revision-suffix: ${{ steps.names.outputs.suffix }}
-          external: 'true'
-          expected-sha: ${{ github.sha }}
-
-      - name: Report live traffic
-        if: always()
-        run: |
-          set -euo pipefail
-          {
-            echo "## Live traffic — staging"
-            echo
-            echo "| App | Revision | Weight |"
-            echo "|---|---|---|"
-            for app in identity-staging board-staging notification-staging gateway-staging; do
-              az containerapp show -n "$app" -g "${{ vars.RESOURCE_GROUP }}" \
-                --query "properties.configuration.ingress.traffic[].{r:revisionName,w:weight}" -o tsv 2>/dev/null |
-                while IFS=$'\t' read -r rev weight; do
-                  echo "| $app | \`${rev:-latest}\` | ${weight}% |"
-                done
-            done
-          } >> "$GITHUB_STEP_SUMMARY"
+  deploy-staging:
+    name: Deploy staging
+    if: github.ref == 'refs/heads/main' && needs.detect-changes.outputs.services != '[]'
+    needs: [ detect-changes, ci, wake-database ]
+    uses: ./.github/workflows/deploy.yaml
+    with:
+      environment: staging
+      services: ${{ needs.detect-changes.outputs.services }}
+    permissions:
+      contents: read
+      id-token: write
 
   acceptance-staging:
     name: Acceptance tests (staging)
@@ -319,90 +215,13 @@ jobs:
   deploy-production:
     name: Deploy production
     needs: [ detect-changes, acceptance-staging ]
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    environment: production
-    concurrency:
-      group: azure-container-apps
-      cancel-in-progress: false
+    uses: ./.github/workflows/deploy.yaml
+    with:
+      environment: production
+      services: ${{ needs.detect-changes.outputs.services }}
     permissions:
       contents: read
       id-token: write
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-
-      - uses: azure/login@f5d393ae46f8fde4be8b75f32e3fc50e654ad0ca # v3.0.1
-        with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-
-      - id: names
-        run: echo "suffix=${GITHUB_SHA:0:7}-${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
-
-      - name: identity-service
-        if: contains(fromJSON(needs.detect-changes.outputs.services), 'identity-service')
-        uses: ./.github/actions/blue-green-deploy
-        with:
-          app-name: identity-production
-          resource-group: ${{ vars.RESOURCE_GROUP }}
-          image: ${{ vars.ACR_LOGIN_SERVER }}/trackly/identity-service:sha-${{ github.sha }}
-          revision-suffix: ${{ steps.names.outputs.suffix }}
-          external: 'true'
-          expected-sha: ${{ github.sha }}
-
-      - name: board-service
-        if: contains(fromJSON(needs.detect-changes.outputs.services), 'board-service')
-        uses: ./.github/actions/blue-green-deploy
-        with:
-          app-name: board-production
-          resource-group: ${{ vars.RESOURCE_GROUP }}
-          image: ${{ vars.ACR_LOGIN_SERVER }}/trackly/board-service:sha-${{ github.sha }}
-          revision-suffix: ${{ steps.names.outputs.suffix }}
-          expected-sha: ${{ github.sha }}
-
-      - name: notification-service
-        if: contains(fromJSON(needs.detect-changes.outputs.services), 'notification-service')
-        uses: ./.github/actions/blue-green-deploy
-        with:
-          app-name: notification-production
-          resource-group: ${{ vars.RESOURCE_GROUP }}
-          image: ${{ vars.ACR_LOGIN_SERVER }}/trackly/notification-service:sha-${{ github.sha }}
-          revision-suffix: ${{ steps.names.outputs.suffix }}
-          expected-sha: ${{ github.sha }}
-
-      - name: gateway-service
-        if: contains(fromJSON(needs.detect-changes.outputs.services), 'gateway-service')
-        uses: ./.github/actions/blue-green-deploy
-        with:
-          app-name: gateway-production
-          resource-group: ${{ vars.RESOURCE_GROUP }}
-          image: ${{ vars.ACR_LOGIN_SERVER }}/trackly/gateway-service:sha-${{ github.sha }}
-          revision-suffix: ${{ steps.names.outputs.suffix }}
-          external: 'true'
-          expected-sha: ${{ github.sha }}
-
-      - name: Report live traffic
-        if: always()
-        run: |
-          set -euo pipefail
-          {
-            echo "## Live traffic — production"
-            echo
-            echo "| App | Revision | Weight |"
-            echo "|---|---|---|"
-            for app in identity-production board-production notification-production gateway-production; do
-              az containerapp show -n "$app" -g "${{ vars.RESOURCE_GROUP }}" \
-                --query "properties.configuration.ingress.traffic[].{r:revisionName,w:weight}" -o tsv 2>/dev/null |
-                while IFS=$'\t' read -r rev weight; do
-                  echo "| $app | \`${rev:-latest}\` | ${weight}% |"
-                done
-            done
-            echo
-            echo "Roll back with the **Rollback** workflow; the previous revision is still warm."
-          } >> "$GITHUB_STEP_SUMMARY"
 
   notify-broken-mainline:
     name: Report broken mainline
@@ -414,30 +233,16 @@ jobs:
       contents: read
       issues: write
     steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
       - name: Open or update the broken-build issue
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: |
-          set -euo pipefail
-          SHORT="${GITHUB_SHA:0:7}"
-          BODY=$(cat <<EOF
-          CI failed on \`main\` at \`${GITHUB_SHA}\` (@${GITHUB_ACTOR}).
-
-          Run: ${RUN_URL}
-
-          Fixing a broken mainline takes priority over new work: revert the offending commit,
-          or fix forward if the fix is obvious and small.
-          EOF
-          )
-          EXISTING=$(gh issue list --label broken-build --state open --json number --jq '.[0].number // empty')
-          if [ -n "$EXISTING" ]; then
-            gh issue comment "$EXISTING" --body "$BODY"
-          else
-            gh issue create --title "Broken mainline: CI failed at ${SHORT}" \
-              --label broken-build --body "$BODY"
-          fi
+        run: .github/scripts/notify-broken-mainline.sh
 
   notify-failed-release:
     name: Report failed release
@@ -449,6 +254,10 @@ jobs:
       contents: read
       issues: write
     steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
       - name: Open or update the deployment issue
         env:
           GH_TOKEN: ${{ github.token }}
@@ -457,29 +266,4 @@ jobs:
           WAKE: ${{ needs.wake-database.result }}
           STAGING: ${{ needs.deploy-staging.result }}
           ACCEPTANCE: ${{ needs.acceptance-staging.result }}
-        run: |
-          set -euo pipefail
-          SHORT="${GITHUB_SHA:0:7}"
-          BODY=$(cat <<EOF
-          The release of \`${GITHUB_SHA}\` did not reach production.
-
-          | Stage | Result |
-          |---|---|
-          | Wake the database | ${WAKE} |
-          | Deploy staging | ${STAGING} |
-          | Acceptance tests (staging) | ${ACCEPTANCE} |
-
-          Run: ${RUN_URL}
-
-          The commit stage passed, so \`main\` is not broken — the artefacts exist and the
-          previous revision is still serving. Roll back with the **Rollback** workflow if a
-          staging revision took traffic before the failure.
-          EOF
-          )
-          EXISTING=$(gh issue list --label deployment --state open --json number --jq '.[0].number // empty')
-          if [ -n "$EXISTING" ]; then
-            gh issue comment "$EXISTING" --body "$BODY"
-          else
-            gh issue create --title "Failed release: ${SHORT} did not reach production" \
-              --label deployment --body "$BODY"
-          fi
+        run: .github/scripts/notify-failed-release.sh
