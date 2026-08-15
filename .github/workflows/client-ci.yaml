@@ -1,8 +1,9 @@
 name: Client CI
 
 # The SPA is staged the same way the services are (ADR 0010): a fast commit stage that comes back in
-# about a minute, with the slower browser-driven journeys behind it. The image that ships the SPA is
-# built by gateway-service's own pipeline (ADR 0006), so there is no package stage here.
+# about a minute, with the slower browser-driven journeys behind it. The production bundle is built
+# once by ci.yaml's build-spa job and shipped as a layer of the gateway image (ADR 0006), so there is
+# neither a bundle step nor a package stage here.
 
 on:
   workflow_call:
@@ -43,9 +44,6 @@ jobs:
 
       - name: Unit-test the client and gate coverage
         run: npm run test:ci
-
-      - name: Build the production bundle
-        run: npm run build
 
       - name: Annotate failing tests on the pull request
         if: always()

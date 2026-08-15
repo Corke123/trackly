@@ -26,6 +26,8 @@ jobs:
     timeout-minutes: 5
     outputs:
       services: ${{ steps.select.outputs.services }}
+      backend-services: ${{ steps.select.outputs.backend-services }}
+      gateway: ${{ steps.select.outputs.gateway }}
       client: ${{ steps.select.outputs.client }}
     steps:
       - uses: actions/checkout@v7
@@ -91,16 +93,66 @@ jobs:
   build:
     name: ${{ matrix.service }}
     needs: detect-changes
-    if: needs.detect-changes.outputs.services != '[]'
+    if: needs.detect-changes.outputs.backend-services != '[]'
     strategy:
       fail-fast: false
       matrix:
-        service: ${{ fromJSON(needs.detect-changes.outputs.services) }}
+        service: ${{ fromJSON(needs.detect-changes.outputs.backend-services) }}
     uses: ./.github/workflows/service-ci.yaml
     with:
       service: ${{ matrix.service }}
       java-version: '25'
-      docker-context: ${{ matrix.service == 'gateway-service' && '.' || '' }}
+      push-image: ${{ github.ref == 'refs/heads/main' }}
+    permissions:
+      contents: read
+      checks: write
+      id-token: write
+      security-events: write
+      attestations: write
+
+  build-spa:
+    name: trackly-client / Bundle
+    needs: detect-changes
+    if: needs.detect-changes.outputs.gateway == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: trackly-client/package-lock.json
+
+      - name: Build the production bundle
+        working-directory: trackly-client
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts
+          npm run build
+
+      - name: Upload the bundle
+        uses: actions/upload-artifact@v7
+        with:
+          name: trackly-client-dist
+          path: trackly-client/dist/trackly-client/browser/
+          retention-days: 7
+          if-no-files-found: error
+
+  build-gateway:
+    name: gateway-service
+    needs: [ detect-changes, build-spa ]
+    if: needs.detect-changes.outputs.gateway == 'true'
+    uses: ./.github/workflows/service-ci.yaml
+    with:
+      service: gateway-service
+      java-version: '25'
+      spa-artifact: trackly-client-dist
       push-image: ${{ github.ref == 'refs/heads/main' }}
     permissions:
       contents: read
@@ -123,7 +175,7 @@ jobs:
   ci:
     name: CI required
     if: always()
-    needs: [ detect-changes, lint, build, client ]
+    needs: [ detect-changes, lint, build, build-spa, build-gateway, client ]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

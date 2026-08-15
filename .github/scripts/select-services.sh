@@ -18,8 +18,13 @@ else
   reason="path filter"
 fi
 
+backend_services=$(printf '%s' "$services" | jq -c 'map(select(. != "gateway-service"))')
+gateway=$(printf '%s' "$services" | jq -r 'index("gateway-service") != null')
+
 {
   echo "services=$services"
+  echo "backend-services=$backend_services"
+  echo "gateway=$gateway"
   echo "client=$client_build"
 } >> "$GITHUB_OUTPUT"
 
@@ -30,5 +35,6 @@ fi
   echo "|---|---|"
   echo "| Reason | $reason |"
   echo "| Services to build | \`$services\` |"
+  echo "| Build the gateway | \`$gateway\` |"
   echo "| Build the client | \`$client_build\` |"
 } >> "$GITHUB_STEP_SUMMARY"

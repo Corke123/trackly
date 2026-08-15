@@ -34,3 +34,6 @@ crash.log
 # Build/test output
 coverage/
 *.log
+
+# Gateway SPA bundle, downloaded into the image build context by CI
+gateway-service/static/

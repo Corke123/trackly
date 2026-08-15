@@ -1,23 +1,10 @@
 # syntax=docker/dockerfile:1
 
-FROM maven:3.9-eclipse-temurin-25-alpine AS builder
+FROM eclipse-temurin:25-jre-alpine AS extractor
 WORKDIR /app
 
-COPY pom.xml .
-RUN --mount=type=cache,target=/root/.m2 mvn -B -q dependency:go-offline
-
-ARG GIT_SHA=unknown
-ARG BUILD_NUMBER=0
-ARG BUILD_URL=local
-
-COPY src ./src
-RUN --mount=type=cache,target=/root/.m2 mvn -B -q clean package -DskipTests \
-      -Dgit.commit.id="$GIT_SHA" \
-      -Dci.build.number="$BUILD_NUMBER" \
-      -Dci.build.url="$BUILD_URL"
-
-RUN java -Djarmode=tools -jar target/*.jar extract --layers --destination extracted && \
-    mv extracted/application/*.jar extracted/application/app.jar
+COPY target/*.jar app.jar
+RUN java -Djarmode=tools -jar app.jar extract --layers --destination extracted
 
 FROM eclipse-temurin:25-jre-alpine AS runtime
 WORKDIR /app
@@ -30,10 +17,10 @@ RUN apk --no-cache upgrade && \
 
 USER appuser
 
-COPY --from=builder /app/extracted/dependencies/ ./
-COPY --from=builder /app/extracted/spring-boot-loader/ ./
-COPY --from=builder /app/extracted/snapshot-dependencies/ ./
-COPY --from=builder /app/extracted/application/ ./
+COPY --from=extractor /app/extracted/dependencies/ ./
+COPY --from=extractor /app/extracted/spring-boot-loader/ ./
+COPY --from=extractor /app/extracted/snapshot-dependencies/ ./
+COPY --from=extractor /app/extracted/application/ ./
 
 EXPOSE 8081
 

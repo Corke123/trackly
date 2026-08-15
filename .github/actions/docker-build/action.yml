@@ -1,21 +1,15 @@
 name: Build container image
 description: >
-  Builds a service image with buildx and the GitHub Actions layer cache, stamps OCI provenance
-  labels and Spring Boot build information into it, and scans it with Trivy. `push` defaults to
+  Layers the jar the commit stage already built and gated onto a hardened runtime with buildx,
+  stamps OCI provenance labels onto the image, and scans it with Trivy. No layer cache: nothing
+  is compiled here, so the only cacheable layer is one `apk` invocation. `push` defaults to
   false so CI only verifies the artefact; CD flips it to true and supplies a registry.
   On the default branch it also publishes `latest`, which only a first `terraform apply` consumes.
 
 inputs:
   service:
-    description: Service directory. Holds the Dockerfile and is the build context unless `context` overrides it.
+    description: Service directory. Holds the Dockerfile and is the build context.
     required: true
-  context:
-    description: >
-      Build context, when the Dockerfile needs more than its own service directory — gateway-service
-      builds from the repository root because its image bundles the SPA (ADR 0006). Defaults to the
-      service directory.
-    required: false
-    default: ''
   image-name:
     description: Image repository, without a registry prefix.
     required: true
@@ -25,14 +19,6 @@ inputs:
   git-sha:
     description: Commit the image is built from.
     required: true
-  build-number:
-    description: Monotonic pipeline run number, recorded in the image as build.buildNumber.
-    required: false
-    default: '0'
-  build-url:
-    description: Link back to the pipeline run that produced the image, recorded as build.buildUrl.
-    required: false
-    default: local
   registry:
     description: Registry host, e.g. myacr.azurecr.io. Empty for a local-only build.
     required: false
@@ -94,19 +80,13 @@ runs:
     - id: build
       uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
       with:
-        context: ${{ inputs.context || inputs.service }}
+        context: ${{ inputs.service }}
         file: ${{ inputs.service }}/Dockerfile
         push: ${{ inputs.push == 'true' }}
         load: ${{ inputs.push != 'true' }}
         platforms: linux/amd64
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
-        build-args: |
-          GIT_SHA=${{ inputs.git-sha }}
-          BUILD_NUMBER=${{ inputs.build-number }}
-          BUILD_URL=${{ inputs.build-url }}
-        cache-from: type=gha,scope=${{ inputs.service }}
-        cache-to: type=gha,mode=max,scope=${{ inputs.service }}
         provenance: false
 
     - name: Scan the image with Trivy

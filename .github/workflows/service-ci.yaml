@@ -19,10 +19,10 @@ on:
         required: false
         type: boolean
         default: true
-      docker-context:
+      spa-artifact:
         description: >
-          Docker build context, for a service whose image needs more than its own directory.
-          Defaults to the service directory.
+          Artifact holding a built single-page app to ship alongside this service's jar, served
+          from `file:/app/static/` (ADR 0006). Empty for a service that ships no front-end.
         required: false
         type: string
         default: ''
@@ -111,12 +111,14 @@ jobs:
           retention-days: 7
           if-no-files-found: warn
 
-      - name: Upload application jar
+      - name: Upload the application jar
         uses: actions/upload-artifact@v7
         with:
           name: ${{ inputs.service }}-jar
           path: ${{ inputs.service }}/target/*.jar
           retention-days: 7
+          if-no-files-found: error
+          compression-level: 0
 
   integration-stage:
     name: Integration stage
@@ -217,6 +219,19 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Download the jar the commit stage built and gated
+        uses: actions/download-artifact@v7
+        with:
+          name: ${{ inputs.service }}-jar
+          path: ${{ inputs.service }}/target
+
+      - name: Download the single-page app
+        if: inputs.spa-artifact != ''
+        uses: actions/download-artifact@v7
+        with:
+          name: ${{ inputs.spa-artifact }}
+          path: ${{ inputs.service }}/static
+
       - name: Sign in to Azure
         if: inputs.push-image
         uses: azure/login@f5d393ae46f8fde4be8b75f32e3fc50e654ad0ca # v3.0.1
@@ -234,12 +249,9 @@ jobs:
         uses: ./.github/actions/docker-build
         with:
           service: ${{ inputs.service }}
-          context: ${{ inputs.docker-context }}
           image-name: trackly/${{ inputs.service }}
           version: ${{ needs.commit-stage.outputs.version }}
           git-sha: ${{ github.sha }}
-          build-number: ${{ github.run_number }}
-          build-url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           registry: ${{ inputs.push-image && vars.ACR_LOGIN_SERVER || '' }}
           push: ${{ inputs.push-image && 'true' || 'false' }}
 
