@@ -31,7 +31,7 @@ jobs:
       contents: read
       id-token: write
     outputs:
-      gateway-url: ${{ steps.gateway.outputs.fqdn }}
+      gateway-url: ${{ steps.gateway-url.outputs.fqdn }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -48,6 +48,16 @@ jobs:
         run: |
           set -euo pipefail
           echo "suffix=${GITHUB_SHA:0:7}-${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+
+      - id: gateway-url
+        name: Resolve the gateway's public FQDN
+        env:
+          RG: ${{ vars.RESOURCE_GROUP }}
+          APP: gateway-${{ inputs.environment }}
+        run: |
+          set -euo pipefail
+          fqdn=$(az containerapp show -n "$APP" -g "$RG" --query "properties.configuration.ingress.fqdn" -o tsv)
+          echo "fqdn=${fqdn}" >> "$GITHUB_OUTPUT"
 
       - name: identity-service
         if: contains(fromJSON(inputs.services), 'identity-service')
