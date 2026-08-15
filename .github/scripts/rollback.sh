@@ -5,7 +5,7 @@ set -euo pipefail
 : "${SERVICE:?SERVICE must be set to all or a single service}"
 : "${RG:?RG must be set to the resource group}"
 
-if [ "$SERVICE" = "all" ]; then
+if [[ "$SERVICE" == "all" ]]; then
   services="gateway identity board notification"
 else
   services="$SERVICE"
@@ -28,8 +28,8 @@ for service in $services; do
   target=$(az containerapp revision list -n "$app" -g "$RG" \
     --query "sort_by([?properties.active], &properties.createdTime) | reverse(@) | [?name!='${current}'] | [0].name" -o tsv)
 
-  if [ -z "$target" ] || [ "$target" = "null" ]; then
-    echo "::error::No previous active revision for ${app} to roll back to"
+  if [[ -z "$target" || "$target" == "null" ]]; then
+    echo "::error::No previous active revision for ${app} to roll back to" >&2
     echo "| $app | \`$current\` | none available |" >> "$GITHUB_STEP_SUMMARY"
     failed=1
     continue
