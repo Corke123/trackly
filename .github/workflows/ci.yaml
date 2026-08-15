@@ -145,6 +145,10 @@ jobs:
       contents: read
       id-token: write
     steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
       - uses: azure/login@f5d393ae46f8fde4be8b75f32e3fc50e654ad0ca # v3.0.1
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
@@ -152,15 +156,9 @@ jobs:
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
       - name: Start the server if hibernate.yaml stopped it
-        run: |
-          set -euo pipefail
-          server=$(az postgres flexible-server list -g rg-trackly-shared --query "[0].name" -o tsv)
-          state=$(az postgres flexible-server show -n "$server" -g rg-trackly-shared --query state -o tsv)
-          echo "$server is $state"
-          if [ "$state" != "Ready" ]; then
-            az postgres flexible-server start -n "$server" -g rg-trackly-shared --output none
-            echo "Started $server"
-          fi
+        env:
+          ACTION: start
+        run: .github/scripts/hibernate.sh
 
   deploy-staging:
     name: Deploy staging
