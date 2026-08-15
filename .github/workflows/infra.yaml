@@ -3,10 +3,10 @@ name: Infrastructure
 on:
   pull_request:
     branches: [ main ]
-    paths: [ 'infra/**.tf', 'infra/**.tfvars', 'infra/**.hcl', '.github/workflows/infra.yaml' ]
+    paths: [ 'infra/**.tf', 'infra/**.tfvars', 'infra/**.hcl', '.github/workflows/infra.yaml', '.github/scripts/terraform-stack.sh' ]
   push:
     branches: [ main ]
-    paths: [ 'infra/**.tf', 'infra/**.tfvars', 'infra/**.hcl', '.github/workflows/infra.yaml' ]
+    paths: [ 'infra/**.tf', 'infra/**.tfvars', 'infra/**.hcl', '.github/workflows/infra.yaml', '.github/scripts/terraform-stack.sh' ]
   workflow_dispatch:
     inputs:
       stack:
@@ -28,6 +28,10 @@ env:
   ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
   ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
   ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+  AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+  TFSTATE_RESOURCE_GROUP: ${{ vars.TFSTATE_RESOURCE_GROUP }}
+  TFSTATE_STORAGE_ACCOUNT: ${{ vars.TFSTATE_STORAGE_ACCOUNT }}
+  TFSTATE_CONTAINER: ${{ vars.TFSTATE_CONTAINER }}
 
 jobs:
   plan:
@@ -52,34 +56,23 @@ jobs:
         with:
           terraform_version: 1.15.4
 
-      - name: Init
-        working-directory: infra/environments/${{ matrix.stack }}
-        run: |
-          terraform init -input=false \
-            -backend-config="resource_group_name=${{ vars.TFSTATE_RESOURCE_GROUP }}" \
-            -backend-config="storage_account_name=${{ vars.TFSTATE_STORAGE_ACCOUNT }}" \
-            -backend-config="container_name=${{ vars.TFSTATE_CONTAINER }}"
-
-      - name: Validate
-        working-directory: infra/environments/${{ matrix.stack }}
-        run: terraform validate
-
       - name: Check formatting
         working-directory: infra
         run: terraform fmt -check -recursive
 
-      - id: plan
-        name: Plan
-        working-directory: infra/environments/${{ matrix.stack }}
+      - name: Plan
         env:
-          TF_VAR_client_secret: ${{ matrix.stack == 'production' && secrets.CLIENT_SECRET_PRODUCTION || secrets.CLIENT_SECRET_STAGING }}
-          TF_VAR_client_secret_bcrypt: ${{ matrix.stack == 'production' && secrets.CLIENT_SECRET_HASH_PRODUCTION || secrets.CLIENT_SECRET_HASH_STAGING }}
-        run: |
-          set -o pipefail
-          terraform plan -input=false -no-color -lock-timeout=5m \
-            -var subscription_id="${{ vars.AZURE_SUBSCRIPTION_ID }}" \
-            ${{ matrix.stack == 'shared' && format('-var operator_object_id="{0}" -var operator_ip="{1}" -var github_infra_identity_principal_id="{2}" -var budget_alert_email="{3}"', vars.OPERATOR_OBJECT_ID, vars.OPERATOR_IP, vars.INFRA_IDENTITY_PRINCIPAL_ID, vars.BUDGET_ALERT_EMAIL) || format('-var tfstate_resource_group="{0}" -var tfstate_storage_account="{1}"', vars.TFSTATE_RESOURCE_GROUP, vars.TFSTATE_STORAGE_ACCOUNT) }} \
-            | tee plan.txt
+          STACK: ${{ matrix.stack }}
+          MODE: plan
+          OPERATOR_OBJECT_ID: ${{ vars.OPERATOR_OBJECT_ID }}
+          OPERATOR_IP: ${{ vars.OPERATOR_IP }}
+          INFRA_IDENTITY_PRINCIPAL_ID: ${{ vars.INFRA_IDENTITY_PRINCIPAL_ID }}
+          BUDGET_ALERT_EMAIL: ${{ vars.BUDGET_ALERT_EMAIL }}
+          CLIENT_SECRET_STAGING: ${{ matrix.stack == 'staging' && secrets.CLIENT_SECRET_STAGING || '' }}
+          CLIENT_SECRET_HASH_STAGING: ${{ matrix.stack == 'staging' && secrets.CLIENT_SECRET_HASH_STAGING || '' }}
+          CLIENT_SECRET_PRODUCTION: ${{ matrix.stack == 'production' && secrets.CLIENT_SECRET_PRODUCTION || '' }}
+          CLIENT_SECRET_HASH_PRODUCTION: ${{ matrix.stack == 'production' && secrets.CLIENT_SECRET_HASH_PRODUCTION || '' }}
+        run: .github/scripts/terraform-stack.sh
 
       - name: Comment the plan on the pull request
         uses: actions/github-script@v9
@@ -138,7 +131,12 @@ jobs:
 
       - name: Apply
         env:
+          MODE: apply
           STACKS: ${{ steps.stacks.outputs.list }}
+          OPERATOR_OBJECT_ID: ${{ vars.OPERATOR_OBJECT_ID }}
+          OPERATOR_IP: ${{ vars.OPERATOR_IP }}
+          INFRA_IDENTITY_PRINCIPAL_ID: ${{ vars.INFRA_IDENTITY_PRINCIPAL_ID }}
+          BUDGET_ALERT_EMAIL: ${{ vars.BUDGET_ALERT_EMAIL }}
           CLIENT_SECRET_STAGING: ${{ secrets.CLIENT_SECRET_STAGING }}
           CLIENT_SECRET_HASH_STAGING: ${{ secrets.CLIENT_SECRET_HASH_STAGING }}
           CLIENT_SECRET_PRODUCTION: ${{ secrets.CLIENT_SECRET_PRODUCTION }}
@@ -147,31 +145,7 @@ jobs:
           set -euo pipefail
           for stack in $STACKS; do
             echo "::group::terraform apply ${stack}"
-            cd "infra/environments/${stack}"
-            terraform init -input=false \
-              -backend-config="resource_group_name=${{ vars.TFSTATE_RESOURCE_GROUP }}" \
-              -backend-config="storage_account_name=${{ vars.TFSTATE_STORAGE_ACCOUNT }}" \
-              -backend-config="container_name=${{ vars.TFSTATE_CONTAINER }}"
-            if [ "$stack" = "shared" ]; then
-              terraform apply -input=false -auto-approve -lock-timeout=5m \
-                -var subscription_id="${{ vars.AZURE_SUBSCRIPTION_ID }}" \
-                -var operator_object_id="${{ vars.OPERATOR_OBJECT_ID }}" \
-                -var operator_ip="${{ vars.OPERATOR_IP }}" \
-                -var github_infra_identity_principal_id="${{ vars.INFRA_IDENTITY_PRINCIPAL_ID }}" \
-                -var budget_alert_email="${{ vars.BUDGET_ALERT_EMAIL }}"
-            else
-              suffix=$(echo "$stack" | tr '[:lower:]' '[:upper:]')
-              secret="CLIENT_SECRET_${suffix}"
-              hash="CLIENT_SECRET_HASH_${suffix}"
-              export TF_VAR_client_secret="${!secret}"
-              export TF_VAR_client_secret_bcrypt="${!hash}"
-              terraform apply -input=false -auto-approve -lock-timeout=5m \
-                -var subscription_id="${{ vars.AZURE_SUBSCRIPTION_ID }}" \
-                -var tfstate_resource_group="${{ vars.TFSTATE_RESOURCE_GROUP }}" \
-                -var tfstate_storage_account="${{ vars.TFSTATE_STORAGE_ACCOUNT }}"
-              unset TF_VAR_client_secret TF_VAR_client_secret_bcrypt
-            fi
-            cd - >/dev/null
+            STACK="$stack" .github/scripts/terraform-stack.sh
             echo "::endgroup::"
           done
 
