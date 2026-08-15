@@ -197,26 +197,31 @@ deployment pipeline (ADR 0010):
 |-------------------|---------------------------------------------------------------------------------------------------------------|------------------|---------|
 | Commit stage      | `./mvnw package` — compile, unit tests, JaCoCo unit gate (LINE/BRANCH ≥ 0.85)                                 | blocks the merge | ~2 min  |
 | Integration stage | `./mvnw verify` — Testcontainers (Postgres 17, Service Bus emulator), merged JaCoCo gate (LINE/BRANCH ≥ 0.90) | blocks the merge | ~6 min  |
-| Package           | Docker image build and Trivy scan                                                                             | blocks the merge | ~3 min  |
+| Package           | Layer the commit stage's jar onto the runtime image, then Trivy scan                                          | blocks the merge | ~1 min  |
 
 The commit stage needs no Docker, so a mistake comes back in about two minutes; the slow, infrastructure-heavy
 verification runs behind it.
+
+The package stage compiles nothing. It downloads the jar the commit stage built and gated, and the Dockerfile only
+splits it into layers and places it on a hardened runtime — so the image that reaches production holds the artifact that
+was actually tested, rather than a third independent compile (ADR 0010).
 
 SonarCloud analyses every pull request alongside these stages and gates on an **A** security rating for new code.
 Findings that are deliberate design decisions rather than defects are marked reviewed in SonarCloud, with the reasoning
 recorded in [ADR 0017](docs/adr/0017-accepted-static-analysis-findings.md) so it lives in the repository rather than only
 in a review comment.
 
-`gateway-service` goes through the same three stages as every other service, with one difference: its image bundles the
-SPA (ADR 0006), so a change under `trackly-client/**` triggers the gateway's build, and the gateway's image is the only
-one built from the repository root rather than its own directory.
+`gateway-service` goes through the same three stages as every other service, with one difference: its image ships the
+SPA (ADR 0006), so a change under `trackly-client/**` triggers the gateway's build. The bundle is built once by a
+`build-spa` job and shipped as the outermost layer of the gateway image, which is why the gateway is a job of its own
+rather than a leg of the service matrix — a matrix leg cannot name a single upstream job in `needs:` (ADR 0009).
 
 `trackly-client` is not a Maven service, so it has a pipeline of its own —
 [`client-ci.yaml`](.github/workflows/client-ci.yaml) — staged on the same principle:
 
 | Stage             | Runs                                                                             | Gate             | Typical |
 |-------------------|----------------------------------------------------------------------------------|------------------|---------|
-| Commit stage      | `npm run test:ci` — Vitest unit tests, coverage gate (≥ 85%), then `ng build`     | blocks the merge | ~2 min  |
+| Commit stage      | `npm run test:ci` — Vitest unit tests, coverage gate (≥ 85%)                      | blocks the merge | ~2 min  |
 | End-to-end stage  | `npm run e2e` — Playwright journeys for both roles against a stubbed gateway API  | blocks the merge | ~3 min  |
 
 The journeys stub the gateway's API rather than starting the stack: what they are testing is the client's own behaviour
@@ -228,8 +233,9 @@ continuous delivery.
 reusable-workflow job names change as services are added, that one does not.
 
 Test results, failing-test details, per-class timings and coverage are rendered into each run's job summary; failing
-tests are also annotated inline on the pull request. JaCoCo HTML reports, the Surefire/Failsafe XML and the application
-jar are attached to the run as artifacts. A failure on
+tests are also annotated inline on the pull request. JaCoCo HTML reports and the Surefire/Failsafe XML are attached to
+the run as artifacts; the application jar and the SPA bundle are attached too, and unlike the reports they are load
+bearing — the package stage builds the image from them. A failure on
 `main` opens (or comments on) an issue labelled `broken-build`.
 
 Every image carries its provenance: `/actuator/info` reports `build.version`, `build.revision` (the commit),

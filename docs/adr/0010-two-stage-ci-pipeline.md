@@ -7,7 +7,14 @@ The per-service pipeline (`.github/workflows/service-ci.yaml`, called by the cha
 |-------------------|------------------------|----------------------------------------------------------|---------|
 | Commit stage      | `./mvnw package`       | compile, unit tests, unit coverage ≥ 0.85                | ~2 min  |
 | Integration stage | `./mvnw verify`        | Testcontainers integration tests, merged coverage ≥ 0.90 | ~6 min  |
-| Package           | `docker build` + Trivy | image builds and scans clean                             | ~3 min  |
+| Package           | `docker build` + Trivy | image builds and scans clean                             | ~1 min  |
+
+**The package stage compiles nothing.** It downloads the jar the commit stage built and gated, and the Dockerfile only
+splits it into layers and places it on a hardened runtime. Building the binary once is the point: the pipeline used to
+compile each service three times and ship the copy that had never been tested — built with `-DskipTests`, by the base
+image's Maven rather than `./mvnw`, and invalidated on every run because the commit sha was interpolated into the `RUN`
+line. Provenance is unchanged, because the commit stage stamps `build-info` from the same `github.sha` the deploy then
+asserts on. The same reasoning applies to the SPA, which `build-spa` produces once (ADR 0006).
 
 The commit stage needs no Docker and no external infrastructure, which is what keeps it inside the ten-minute feedback
 budget (Ch 3.1.7). The integration stage starts a Postgres 17 container, a SQL Server container and the Service Bus
@@ -74,11 +81,19 @@ stage's Testcontainers work at a lower fidelity than staging offers.
   `docker-build` composite's `push`/`registry` inputs, and the stable `CI required` check name. No empty deploy workflow
   is committed, because scaffolding rots. ADR 0008 (OIDC) is unchanged.
 - ADR 0009's `blue-green-deploy` composite is not built — it would have zero call sites today.
-- Build *tooling* is not yet integrity-pinned: `distributionSha256Sum` is absent from the Maven wrapper properties, and
-  the Dockerfile builder still uses the `maven:3.9-eclipse-temurin-25-alpine`
-  image's own Maven rather than `./mvnw`, so the image build may use a different Maven version than CI and local builds
-  do. Note if revisiting: `distributionSha256Sum` is the checksum of the `.zip`, and `mvnw` silently switches to the
-  `.tar.gz` when `unzip` is missing, so an Alpine builder must install `unzip` in the same change.
+- Build *tooling* is not yet integrity-pinned: `distributionSha256Sum` is absent from the Maven wrapper properties. The
+  other half of this — the image build using the `maven:3.9-eclipse-temurin-25-alpine` base image's own Maven rather
+  than `./mvnw`, and so possibly a different Maven version than CI and local builds — is **resolved**: no image compiles
+  anything, so `./mvnw` in the commit stage is the only Maven that ever produces a shipped artifact. Note if revisiting
+  the wrapper checksum: `distributionSha256Sum` is the checksum of the `.zip`, and `mvnw` silently switches to the
+  `.tar.gz` when `unzip` is missing.
+
+- The buildx `type=gha` layer cache is gone. With nothing compiled in the image the only cacheable layer is a single
+  `apk` invocation, and `mode=max` across four scopes was holding 8.2 GB of the repository's 10 GB cache budget —
+  evicting the very `~/.m2` entry this ADR calls "far more valuable" above, and which the one remaining compile now
+  depends on. The cache mounts in the old builder stages were never the win they looked like either: BuildKit cache
+  mounts are not exported by the `gha` backend, so every image build re-resolved dependencies from Maven Central while
+  the runner's warm `~/.m2` sat unused in another job.
 - Trivy **blocks** the package stage (`exit-code: 1`). It ran report-only until the baseline was measured,
   and the measurement is why it could not simply be flipped: the images carried ten fixable HIGH findings
   — four Netty artifacts, the PostgreSQL driver and three Alpine packages — so enabling the gate first
