@@ -111,12 +111,14 @@ jobs:
           retention-days: 7
           if-no-files-found: warn
 
-      - name: Upload application jar
+      - name: Upload the application jar
         uses: actions/upload-artifact@v7
         with:
           name: ${{ inputs.service }}-jar
           path: ${{ inputs.service }}/target/*.jar
           retention-days: 7
+          if-no-files-found: error
+          compression-level: 0
 
   integration-stage:
     name: Integration stage
@@ -217,6 +219,12 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Download the jar the commit stage built and gated
+        uses: actions/download-artifact@v7
+        with:
+          name: ${{ inputs.service }}-jar
+          path: ${{ inputs.service }}/target
+
       - name: Sign in to Azure
         if: inputs.push-image
         uses: azure/login@f5d393ae46f8fde4be8b75f32e3fc50e654ad0ca # v3.0.1
@@ -238,8 +246,6 @@ jobs:
           image-name: trackly/${{ inputs.service }}
           version: ${{ needs.commit-stage.outputs.version }}
           git-sha: ${{ github.sha }}
-          build-number: ${{ github.run_number }}
-          build-url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           registry: ${{ inputs.push-image && vars.ACR_LOGIN_SERVER || '' }}
           push: ${{ inputs.push-image && 'true' || 'false' }}
 
