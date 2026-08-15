@@ -82,8 +82,7 @@ See [`docs/adr/`](docs/adr) for the architectural decisions and their rationale,
 ```
 trackly/
 ├── .github/workflows/     # CI/CD pipelines (change-detection matrix + reusable workflows)
-├── .github/actions/       # composite actions (Java/Maven setup, docker build/push, test report)
-├── .github/scripts/       # the shell the workflows call, runnable outside Actions
+├── .github/actions/       # composite actions (setup, docker build/push, blue-green)
 ├── gateway-service/       # BFF gateway
 ├── identity-service/      # OAuth2 authorization server
 ├── board-service/         # core domain
@@ -280,7 +279,7 @@ the runbook and the things that will bite you.
 
 ```
 CI (unit → integration → image push to ACR)
-  └─ staging: blue-green for all changed services at once, revisions at 0% → verified → 100%
+  └─ staging: blue-green per changed service, revision at 0% → verified → 100%
        └─ acceptance: e2e:stack Playwright journeys against real Azure
             └─ ⏸ manual approval  (required reviewers on the production environment)
                  └─ production: blue-green, previous revision kept warm
@@ -290,12 +289,8 @@ Only **changed** services are built and deployed (`dorny/paths-filter`); an unch
 revision already runs the right image. A `trackly-client` change redeploys `gateway-service`, because the
 SPA is bundled into that image (ADR 0006).
 
-All changed services are released concurrently — the slowest one sets the pace rather than the sum of
-them — and the **traffic shifts** are then applied in order, identity → board → notification → gateway.
-The gateway resolves identity's OIDC discovery document while starting and will not boot without it, but
-`TRACKLY_ISSUER_URI` points at identity's *app* FQDN, which the old revision keeps serving at 100% until
-its own shift lands. So the real precondition is "some identity revision is serving", which always holds;
-ordering the shifts is a two-second control-plane write that preserves the documented intent anyway.
+The staging step deploys `identity-service` before `gateway-service` — the gateway resolves identity's
+OIDC discovery document while starting and will not boot without it.
 
 ### Topology
 
