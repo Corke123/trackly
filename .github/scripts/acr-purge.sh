@@ -10,7 +10,7 @@ for env_name in staging production; do
   for service in identity board notification gateway; do
     image=$(az containerapp show -n "${service}-${env_name}" -g "$rg" \
       --query "properties.template.containers[0].image" -o tsv 2>/dev/null || true)
-    [ -n "$image" ] && protected="${protected} ${image##*:}"
+    [[ -n "$image" ]] && protected="${protected} ${image##*:}"
   done
 done
 echo "Protected tags:${protected:- none}"
