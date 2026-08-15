@@ -237,21 +237,10 @@ jobs:
 
       - name: Report live traffic
         if: always()
-        run: |
-          set -euo pipefail
-          {
-            echo "## Live traffic — staging"
-            echo
-            echo "| App | Revision | Weight |"
-            echo "|---|---|---|"
-            for app in identity-staging board-staging notification-staging gateway-staging; do
-              az containerapp show -n "$app" -g "${{ vars.RESOURCE_GROUP }}" \
-                --query "properties.configuration.ingress.traffic[].{r:revisionName,w:weight}" -o tsv 2>/dev/null |
-                while IFS=$'\t' read -r rev weight; do
-                  echo "| $app | \`${rev:-latest}\` | ${weight}% |"
-                done
-            done
-          } >> "$GITHUB_STEP_SUMMARY"
+        env:
+          ENVIRONMENT: staging
+          RG: ${{ vars.RESOURCE_GROUP }}
+        run: .github/scripts/report-traffic.sh
 
   acceptance-staging:
     name: Acceptance tests (staging)
@@ -362,23 +351,10 @@ jobs:
 
       - name: Report live traffic
         if: always()
-        run: |
-          set -euo pipefail
-          {
-            echo "## Live traffic — production"
-            echo
-            echo "| App | Revision | Weight |"
-            echo "|---|---|---|"
-            for app in identity-production board-production notification-production gateway-production; do
-              az containerapp show -n "$app" -g "${{ vars.RESOURCE_GROUP }}" \
-                --query "properties.configuration.ingress.traffic[].{r:revisionName,w:weight}" -o tsv 2>/dev/null |
-                while IFS=$'\t' read -r rev weight; do
-                  echo "| $app | \`${rev:-latest}\` | ${weight}% |"
-                done
-            done
-            echo
-            echo "Roll back with the **Rollback** workflow; the previous revision is still warm."
-          } >> "$GITHUB_STEP_SUMMARY"
+        env:
+          ENVIRONMENT: production
+          RG: ${{ vars.RESOURCE_GROUP }}
+        run: .github/scripts/report-traffic.sh
 
   notify-broken-mainline:
     name: Report broken mainline
