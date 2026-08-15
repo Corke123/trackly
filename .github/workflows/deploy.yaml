@@ -1,0 +1,100 @@
+name: Deploy
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: >
+          Target environment. Also the suffix of every container app name, so staging deploys
+          identity-staging and production deploys identity-production.
+        required: true
+        type: string
+      services:
+        description: JSON array of services to deploy, from the change detection job.
+        required: true
+        type: string
+    outputs:
+      gateway-url:
+        description: FQDN of the gateway ingress, for tests that run against this environment.
+        value: ${{ jobs.deploy.outputs.gateway-url }}
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: ${{ inputs.environment }}
+    concurrency:
+      group: azure-container-apps
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      gateway-url: ${{ steps.gateway.outputs.fqdn }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: azure/login@f5d393ae46f8fde4be8b75f32e3fc50e654ad0ca # v3.0.1
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - id: names
+        name: Derive the revision suffix
+        run: |
+          set -euo pipefail
+          echo "suffix=${GITHUB_SHA:0:7}-${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+
+      - name: identity-service
+        if: contains(fromJSON(inputs.services), 'identity-service')
+        uses: ./.github/actions/blue-green-deploy
+        with:
+          app-name: identity-${{ inputs.environment }}
+          resource-group: ${{ vars.RESOURCE_GROUP }}
+          image: ${{ vars.ACR_LOGIN_SERVER }}/trackly/identity-service:sha-${{ github.sha }}
+          revision-suffix: ${{ steps.names.outputs.suffix }}
+          external: 'true'
+          expected-sha: ${{ github.sha }}
+
+      - name: board-service
+        if: contains(fromJSON(inputs.services), 'board-service')
+        uses: ./.github/actions/blue-green-deploy
+        with:
+          app-name: board-${{ inputs.environment }}
+          resource-group: ${{ vars.RESOURCE_GROUP }}
+          image: ${{ vars.ACR_LOGIN_SERVER }}/trackly/board-service:sha-${{ github.sha }}
+          revision-suffix: ${{ steps.names.outputs.suffix }}
+          expected-sha: ${{ github.sha }}
+
+      - name: notification-service
+        if: contains(fromJSON(inputs.services), 'notification-service')
+        uses: ./.github/actions/blue-green-deploy
+        with:
+          app-name: notification-${{ inputs.environment }}
+          resource-group: ${{ vars.RESOURCE_GROUP }}
+          image: ${{ vars.ACR_LOGIN_SERVER }}/trackly/notification-service:sha-${{ github.sha }}
+          revision-suffix: ${{ steps.names.outputs.suffix }}
+          expected-sha: ${{ github.sha }}
+
+      - id: gateway
+        name: gateway-service
+        if: contains(fromJSON(inputs.services), 'gateway-service')
+        uses: ./.github/actions/blue-green-deploy
+        with:
+          app-name: gateway-${{ inputs.environment }}
+          resource-group: ${{ vars.RESOURCE_GROUP }}
+          image: ${{ vars.ACR_LOGIN_SERVER }}/trackly/gateway-service:sha-${{ github.sha }}
+          revision-suffix: ${{ steps.names.outputs.suffix }}
+          external: 'true'
+          expected-sha: ${{ github.sha }}
+
+      - name: Report live traffic
+        if: always()
+        env:
+          ENVIRONMENT: ${{ inputs.environment }}
+          RG: ${{ vars.RESOURCE_GROUP }}
+        run: .github/scripts/report-traffic.sh

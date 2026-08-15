@@ -164,83 +164,13 @@ jobs:
     name: Deploy staging
     if: github.ref == 'refs/heads/main' && needs.detect-changes.outputs.services != '[]'
     needs: [ detect-changes, ci, wake-database ]
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    environment: staging
-    concurrency:
-      group: azure-container-apps
-      cancel-in-progress: false
+    uses: ./.github/workflows/deploy.yaml
+    with:
+      environment: staging
+      services: ${{ needs.detect-changes.outputs.services }}
     permissions:
       contents: read
       id-token: write
-    outputs:
-      gateway-url: ${{ steps.gateway.outputs.fqdn }}
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-
-      - uses: azure/login@f5d393ae46f8fde4be8b75f32e3fc50e654ad0ca # v3.0.1
-        with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-
-      - id: names
-        name: Derive the revision suffix
-        run: |
-          set -euo pipefail
-          echo "suffix=${GITHUB_SHA:0:7}-${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
-
-      - name: identity-service
-        if: contains(fromJSON(needs.detect-changes.outputs.services), 'identity-service')
-        uses: ./.github/actions/blue-green-deploy
-        with:
-          app-name: identity-staging
-          resource-group: ${{ vars.RESOURCE_GROUP }}
-          image: ${{ vars.ACR_LOGIN_SERVER }}/trackly/identity-service:sha-${{ github.sha }}
-          revision-suffix: ${{ steps.names.outputs.suffix }}
-          external: 'true'
-          expected-sha: ${{ github.sha }}
-
-      - name: board-service
-        if: contains(fromJSON(needs.detect-changes.outputs.services), 'board-service')
-        uses: ./.github/actions/blue-green-deploy
-        with:
-          app-name: board-staging
-          resource-group: ${{ vars.RESOURCE_GROUP }}
-          image: ${{ vars.ACR_LOGIN_SERVER }}/trackly/board-service:sha-${{ github.sha }}
-          revision-suffix: ${{ steps.names.outputs.suffix }}
-          expected-sha: ${{ github.sha }}
-
-      - name: notification-service
-        if: contains(fromJSON(needs.detect-changes.outputs.services), 'notification-service')
-        uses: ./.github/actions/blue-green-deploy
-        with:
-          app-name: notification-staging
-          resource-group: ${{ vars.RESOURCE_GROUP }}
-          image: ${{ vars.ACR_LOGIN_SERVER }}/trackly/notification-service:sha-${{ github.sha }}
-          revision-suffix: ${{ steps.names.outputs.suffix }}
-          expected-sha: ${{ github.sha }}
-
-      - id: gateway
-        name: gateway-service
-        if: contains(fromJSON(needs.detect-changes.outputs.services), 'gateway-service')
-        uses: ./.github/actions/blue-green-deploy
-        with:
-          app-name: gateway-staging
-          resource-group: ${{ vars.RESOURCE_GROUP }}
-          image: ${{ vars.ACR_LOGIN_SERVER }}/trackly/gateway-service:sha-${{ github.sha }}
-          revision-suffix: ${{ steps.names.outputs.suffix }}
-          external: 'true'
-          expected-sha: ${{ github.sha }}
-
-      - name: Report live traffic
-        if: always()
-        env:
-          ENVIRONMENT: staging
-          RG: ${{ vars.RESOURCE_GROUP }}
-        run: .github/scripts/report-traffic.sh
 
   acceptance-staging:
     name: Acceptance tests (staging)
@@ -284,77 +214,13 @@ jobs:
   deploy-production:
     name: Deploy production
     needs: [ detect-changes, acceptance-staging ]
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    environment: production
-    concurrency:
-      group: azure-container-apps
-      cancel-in-progress: false
+    uses: ./.github/workflows/deploy.yaml
+    with:
+      environment: production
+      services: ${{ needs.detect-changes.outputs.services }}
     permissions:
       contents: read
       id-token: write
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-
-      - uses: azure/login@f5d393ae46f8fde4be8b75f32e3fc50e654ad0ca # v3.0.1
-        with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-
-      - id: names
-        run: echo "suffix=${GITHUB_SHA:0:7}-${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
-
-      - name: identity-service
-        if: contains(fromJSON(needs.detect-changes.outputs.services), 'identity-service')
-        uses: ./.github/actions/blue-green-deploy
-        with:
-          app-name: identity-production
-          resource-group: ${{ vars.RESOURCE_GROUP }}
-          image: ${{ vars.ACR_LOGIN_SERVER }}/trackly/identity-service:sha-${{ github.sha }}
-          revision-suffix: ${{ steps.names.outputs.suffix }}
-          external: 'true'
-          expected-sha: ${{ github.sha }}
-
-      - name: board-service
-        if: contains(fromJSON(needs.detect-changes.outputs.services), 'board-service')
-        uses: ./.github/actions/blue-green-deploy
-        with:
-          app-name: board-production
-          resource-group: ${{ vars.RESOURCE_GROUP }}
-          image: ${{ vars.ACR_LOGIN_SERVER }}/trackly/board-service:sha-${{ github.sha }}
-          revision-suffix: ${{ steps.names.outputs.suffix }}
-          expected-sha: ${{ github.sha }}
-
-      - name: notification-service
-        if: contains(fromJSON(needs.detect-changes.outputs.services), 'notification-service')
-        uses: ./.github/actions/blue-green-deploy
-        with:
-          app-name: notification-production
-          resource-group: ${{ vars.RESOURCE_GROUP }}
-          image: ${{ vars.ACR_LOGIN_SERVER }}/trackly/notification-service:sha-${{ github.sha }}
-          revision-suffix: ${{ steps.names.outputs.suffix }}
-          expected-sha: ${{ github.sha }}
-
-      - name: gateway-service
-        if: contains(fromJSON(needs.detect-changes.outputs.services), 'gateway-service')
-        uses: ./.github/actions/blue-green-deploy
-        with:
-          app-name: gateway-production
-          resource-group: ${{ vars.RESOURCE_GROUP }}
-          image: ${{ vars.ACR_LOGIN_SERVER }}/trackly/gateway-service:sha-${{ github.sha }}
-          revision-suffix: ${{ steps.names.outputs.suffix }}
-          external: 'true'
-          expected-sha: ${{ github.sha }}
-
-      - name: Report live traffic
-        if: always()
-        env:
-          ENVIRONMENT: production
-          RG: ${{ vars.RESOURCE_GROUP }}
-        run: .github/scripts/report-traffic.sh
 
   notify-broken-mainline:
     name: Report broken mainline
