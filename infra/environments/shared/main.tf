@@ -36,6 +36,6 @@ resource "azurerm_container_registry" "shared" {
 resource "azurerm_role_assignment" "github_infra_acr_push" {
   scope                = azurerm_container_registry.shared.id
   role_definition_name = "AcrPush"
-  principal_id         = var.github_infra_identity_principal_id
+  principal_id         = var.GITHUB_INFRA_IDENTITY_PRINCIPAL_ID
   principal_type       = "ServicePrincipal"
 }

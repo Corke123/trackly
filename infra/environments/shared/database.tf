@@ -53,8 +53,8 @@ resource "azurerm_postgresql_flexible_server_active_directory_administrator" "op
   server_name         = azurerm_postgresql_flexible_server.shared.name
   resource_group_name = azurerm_resource_group.shared.name
   tenant_id           = data.azurerm_client_config.current.tenant_id
-  object_id           = var.operator_object_id
-  principal_name      = var.operator_object_id
+  object_id           = var.OPERATOR_OBJECT_ID
+  principal_name      = var.OPERATOR_OBJECT_ID
   principal_type      = "User"
 }
 
@@ -68,6 +68,6 @@ resource "azurerm_postgresql_flexible_server_firewall_rule" "azure_services" {
 resource "azurerm_postgresql_flexible_server_firewall_rule" "operator" {
   name             = "allow-operator"
   server_id        = azurerm_postgresql_flexible_server.shared.id
-  start_ip_address = var.operator_ip
-  end_ip_address   = var.operator_ip
+  start_ip_address = var.OPERATOR_IP
+  end_ip_address   = var.OPERATOR_IP
 }

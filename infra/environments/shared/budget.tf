@@ -1,6 +1,6 @@
 resource "azurerm_consumption_budget_subscription" "trackly" {
   name            = "budget-trackly"
-  subscription_id = "/subscriptions/${var.subscription_id}"
+  subscription_id = "/subscriptions/${var.SUBSCRIPTION_ID}"
 
   amount     = var.monthly_budget
   time_grain = "Monthly"
@@ -14,7 +14,7 @@ resource "azurerm_consumption_budget_subscription" "trackly" {
     threshold      = 50
     operator       = "GreaterThan"
     threshold_type = "Actual"
-    contact_emails = [var.budget_alert_email]
+    contact_emails = [var.BUDGET_ALERT_EMAIL]
   }
 
   notification {
@@ -22,7 +22,7 @@ resource "azurerm_consumption_budget_subscription" "trackly" {
     threshold      = 80
     operator       = "GreaterThan"
     threshold_type = "Actual"
-    contact_emails = [var.budget_alert_email]
+    contact_emails = [var.BUDGET_ALERT_EMAIL]
   }
 
   notification {
@@ -30,7 +30,7 @@ resource "azurerm_consumption_budget_subscription" "trackly" {
     threshold      = 100
     operator       = "GreaterThan"
     threshold_type = "Forecasted"
-    contact_emails = [var.budget_alert_email]
+    contact_emails = [var.BUDGET_ALERT_EMAIL]
   }
 
   lifecycle {

@@ -1,4 +1,4 @@
-variable "subscription_id" {
+variable "SUBSCRIPTION_ID" {
   description = "Azure subscription to deploy into."
   type        = string
 }
@@ -9,17 +9,17 @@ variable "location" {
   default     = "westeurope"
 }
 
-variable "operator_object_id" {
+variable "OPERATOR_OBJECT_ID" {
   description = "Entra object id of the operator, made PostgreSQL Entra administrator for grant-db-identities.sh."
   type        = string
 }
 
-variable "operator_ip" {
+variable "OPERATOR_IP" {
   description = "Public IP the operator runs grant-db-identities.sh from, e.g. from `curl -s ifconfig.me`."
   type        = string
 }
 
-variable "github_infra_identity_principal_id" {
+variable "GITHUB_INFRA_IDENTITY_PRINCIPAL_ID" {
   description = "Principal id of id-trackly-github-infra, created by bootstrap.sh. Granted AcrPush."
   type        = string
 }
@@ -30,7 +30,7 @@ variable "monthly_budget" {
   default     = 50
 }
 
-variable "budget_alert_email" {
+variable "BUDGET_ALERT_EMAIL" {
   description = "Address the budget notifications go to."
   type        = string
 }
