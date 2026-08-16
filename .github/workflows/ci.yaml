@@ -90,6 +90,33 @@ jobs:
           advanced-security: false
           annotations: true
 
+  sonar-repository:
+    name: Analyse infrastructure and workflows
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Analyse the repository and wait for its quality gate
+        if: env.SONAR_TOKEN != ''
+        uses: SonarSource/sonarqube-scan-action@22918119ff8e1ca75a623e15c8296b6ea4fbe28f # v8.2.1
+        with:
+          args: -Dsonar.qualitygate.wait=true
+
+      - name: Report the skipped analysis
+        if: env.SONAR_TOKEN == ''
+        run: |
+          set -euo pipefail
+          echo "### Repository — SonarQube Cloud analysis skipped" >> "$GITHUB_STEP_SUMMARY"
+          echo "No \`SONAR_TOKEN\` was available to this run, so the quality gate did not run." >> "$GITHUB_STEP_SUMMARY"
+
   build:
     name: ${{ matrix.service }}
     needs: detect-changes
@@ -109,6 +136,8 @@ jobs:
       id-token: write
       security-events: write
       attestations: write
+    secrets:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
   build-spa:
     name: trackly-client / Bundle
@@ -160,6 +189,8 @@ jobs:
       id-token: write
       security-events: write
       attestations: write
+    secrets:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
   client:
     name: trackly-client
@@ -171,11 +202,13 @@ jobs:
     permissions:
       contents: read
       checks: write
+    secrets:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
   ci:
     name: CI required
     if: always()
-    needs: [ detect-changes, lint, build, build-spa, build-gateway, client ]
+    needs: [ detect-changes, lint, sonar-repository, build, build-spa, build-gateway, client ]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
