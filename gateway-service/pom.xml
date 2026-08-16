@@ -24,6 +24,9 @@
         <git.commit.id>unknown</git.commit.id>
         <ci.build.number>0</ci.build.number>
         <ci.build.url>local</ci.build.url>
+        <sonar.organization>corke123</sonar.organization>
+        <sonar.projectKey>Corke123_trackly_gateway-service</sonar.projectKey>
+        <sonar.coverage.jacoco.xmlReportPaths>${project.build.directory}/site/jacoco-merged/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
     </properties>
 
     <dependencyManagement>
