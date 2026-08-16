@@ -33,6 +33,10 @@ on:
         required: false
         type: boolean
         default: false
+    secrets:
+      SONAR_TOKEN:
+        description: SonarQube Cloud token. Absent on Dependabot and fork pull requests, which skip the scan.
+        required: false
     outputs:
       version:
         description: Maven project version that was built.
@@ -135,9 +139,11 @@ jobs:
     env:
       TESTCONTAINERS_RYUK_DISABLED: 'true'
       TESTCONTAINERS_CHECKS_DISABLE: 'true'
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
     steps:
       - uses: actions/checkout@v7
         with:
+          fetch-depth: 0
           persist-credentials: false
 
       - uses: ./.github/actions/setup-java-maven
@@ -200,6 +206,19 @@ jobs:
             ${{ inputs.service }}/target/site/jacoco-merged/
           retention-days: 7
           if-no-files-found: warn
+
+      - name: Analyse the service and wait for its quality gate
+        if: env.SONAR_TOKEN != ''
+        run: |
+          ./mvnw org.sonarsource.scanner.maven:sonar-maven-plugin:5.7.0.6970:sonar \
+            -Dsonar.qualitygate.wait=true
+
+      - name: Report the skipped analysis
+        if: env.SONAR_TOKEN == ''
+        run: |
+          set -euo pipefail
+          echo "### ${{ inputs.service }} — SonarQube Cloud analysis skipped" >> "$GITHUB_STEP_SUMMARY"
+          echo "No \`SONAR_TOKEN\` was available to this run, so the quality gate did not run." >> "$GITHUB_STEP_SUMMARY"
 
   package:
     name: Package
