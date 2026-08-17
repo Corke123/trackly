@@ -215,9 +215,11 @@ jobs:
 
       - name: Report the skipped analysis
         if: env.SONAR_TOKEN == ''
+        env:
+          SERVICE: ${{ inputs.service }}
         run: |
           set -euo pipefail
-          echo "### ${{ inputs.service }} — SonarQube Cloud analysis skipped" >> "$GITHUB_STEP_SUMMARY"
+          echo "### ${SERVICE} — SonarQube Cloud analysis skipped" >> "$GITHUB_STEP_SUMMARY"
           echo "No \`SONAR_TOKEN\` was available to this run, so the quality gate did not run." >> "$GITHUB_STEP_SUMMARY"
 
   package:
