@@ -220,14 +220,14 @@ jobs:
           persist-credentials: false
 
       - name: Download the jar the commit stage built and gated
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: ${{ inputs.service }}-jar
           path: ${{ inputs.service }}/target
 
       - name: Download the single-page app
         if: inputs.spa-artifact != ''
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: ${{ inputs.spa-artifact }}
           path: ${{ inputs.service }}/static
