@@ -3,10 +3,15 @@ package org.unibl.etf.pisio.identityservice.jwk;
 import com.nimbusds.jose.jwk.KeyUse;
 import com.nimbusds.jose.jwk.RSAKey;
 import org.junit.jupiter.api.Test;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
 
 import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
+import java.security.GeneralSecurityException;
+import java.security.KeyPairGenerator;
+import java.util.Base64;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -46,8 +51,8 @@ class PemSigningKeysTest {
     }
 
     @Test
-    void rejectsAKeyThatIsNotRsaWithCrtParameters() {
-        Resource ellipticCurve = new ClassPathResource("jwt/elliptic-curve-key.pem");
+    void rejectsAKeyThatIsNotRsaWithCrtParameters() throws Exception {
+        Resource ellipticCurve = ellipticCurveKey();
 
         assertThatThrownBy(() -> new PemSigningKeys(List.of(ellipticCurve)).load())
                 .isInstanceOf(IllegalStateException.class);
@@ -59,5 +64,15 @@ class PemSigningKeysTest {
 
         assertThatThrownBy(() -> new PemSigningKeys(List.of(missing)).load())
                 .isInstanceOf(UncheckedIOException.class);
+    }
+
+    private static Resource ellipticCurveKey() throws GeneralSecurityException {
+        KeyPairGenerator generator = KeyPairGenerator.getInstance("EC");
+        generator.initialize(256);
+        byte[] pkcs8 = generator.generateKeyPair().getPrivate().getEncoded();
+        String pem = "-----BEGIN PRIVATE KEY-----\n"
+                + Base64.getMimeEncoder(64, new byte[] { '\n' }).encodeToString(pkcs8)
+                + "\n-----END PRIVATE KEY-----\n";
+        return new ByteArrayResource(pem.getBytes(StandardCharsets.US_ASCII));
     }
 }
