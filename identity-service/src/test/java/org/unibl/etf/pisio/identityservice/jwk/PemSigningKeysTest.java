@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
 
+import java.io.UncheckedIOException;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -42,5 +43,21 @@ class PemSigningKeysTest {
     @Test
     void rejectsEmptyLocationList() {
         assertThatThrownBy(() -> new PemSigningKeys(List.of())).isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void rejectsAKeyThatIsNotRsaWithCrtParameters() {
+        Resource ellipticCurve = new ClassPathResource("jwt/elliptic-curve-key.pem");
+
+        assertThatThrownBy(() -> new PemSigningKeys(List.of(ellipticCurve)).load())
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void failsWhenAKeyLocationCannotBeRead() {
+        Resource missing = new ClassPathResource("jwt/no-such-signing-key.pem");
+
+        assertThatThrownBy(() -> new PemSigningKeys(List.of(missing)).load())
+                .isInstanceOf(UncheckedIOException.class);
     }
 }
