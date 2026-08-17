@@ -29,6 +29,7 @@
         <sonar.organization>corke123</sonar.organization>
         <sonar.projectKey>Corke123_trackly_identity-service</sonar.projectKey>
         <sonar.coverage.jacoco.xmlReportPaths>${project.build.directory}/site/jacoco-merged/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
+        <sonar.coverage.exclusions>**/config/**,**/jwk/JwkConfig.java,**/jwk/JwtSigningProperties.java,**/IdentityServiceApplication.java</sonar.coverage.exclusions>
     </properties>
 
     <dependencyManagement>
@@ -199,6 +200,14 @@
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
                 <version>0.8.15</version>
+                <configuration>
+                    <excludes>
+                        <exclude>**/config/**</exclude>
+                        <exclude>**/jwk/JwkConfig.class</exclude>
+                        <exclude>**/jwk/JwtSigningProperties*.class</exclude>
+                        <exclude>**/IdentityServiceApplication.class</exclude>
+                    </excludes>
+                </configuration>
                 <executions>
                     <execution>
                         <id>prepare-agent-unit</id>
