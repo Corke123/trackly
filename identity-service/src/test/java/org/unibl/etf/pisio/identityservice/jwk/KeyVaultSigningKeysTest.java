@@ -29,7 +29,7 @@ class KeyVaultSigningKeysTest {
 
     private static final String CERTIFICATE_NAME = "trackly-signing";
 
-    private static final String SIGNING_PKCS12 = text("keyvault/signing-pkcs12.base64");
+    private static final String SIGNING_PKCS12 = text("keyvault/self-signed-test-keystore-pkcs12.base64");
 
     private static final byte[] PREVIOUS_CERTIFICATE = bytes("keyvault/previous-certificate.der");
 
