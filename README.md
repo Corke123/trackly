@@ -213,6 +213,9 @@ Sonar projects — one per service, one for the client, and `Corke123_trackly` f
 because a project reports the complete state of what it analyses, and the pipeline only builds what changed
 ([ADR 0019](docs/adr/0019-ci-based-sonar-analysis-per-module.md)).
 
+Pushes to `main` run the same scans without waiting. A branch analysis establishes no new-code period, so SonarCloud
+computes no verdict there, and waiting for one fails the build on a gate that never ran.
+
 The gate demands an **A** security rating on new code. Findings that are deliberate design decisions rather than
 defects are marked reviewed in SonarCloud, with the reasoning recorded in
 [ADR 0017](docs/adr/0017-accepted-static-analysis-findings.md) so it lives in the repository rather than only in a
