@@ -42,6 +42,15 @@ class RotatingJwkSourceTest {
     }
 
     @Test
+    void constructorRejectsAnEmptyKeySet() {
+        SigningKeys signingKeys = mock(SigningKeys.class);
+        given(signingKeys.load()).willReturn(List.of());
+
+        assertThatThrownBy(() -> new RotatingJwkSource(signingKeys)).isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("no keys");
+    }
+
+    @Test
     void refreshReplacesTheKeySetOnSuccess() {
         RSAKey initial = generateKey();
         RSAKey rotated = generateKey();

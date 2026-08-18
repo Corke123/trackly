@@ -2,8 +2,8 @@
 
 [![CI](https://github.com/Corke123/trackly/actions/workflows/ci.yaml/badge.svg?branch=main)](https://github.com/Corke123/trackly/actions/workflows/ci.yaml)
 [![Infrastructure](https://github.com/Corke123/trackly/actions/workflows/infra.yaml/badge.svg?branch=main)](https://github.com/Corke123/trackly/actions/workflows/infra.yaml)
-[![Quality gate](https://sonarcloud.io/api/project_badges/measure?project=Corke123_trackly&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=Corke123_trackly)
-[![Maintainability](https://sonarcloud.io/api/project_badges/measure?project=Corke123_trackly&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=Corke123_trackly)
+[![Quality gate — infrastructure](https://sonarcloud.io/api/project_badges/measure?project=Corke123_trackly&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=Corke123_trackly)
+[![Maintainability — infrastructure](https://sonarcloud.io/api/project_badges/measure?project=Corke123_trackly&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=Corke123_trackly)
 
 A minimal, functional Trello-like **single-board** kanban application, built as a
 microservice monorepo. Trackly is the practical showcase for the bachelor thesis
@@ -206,10 +206,17 @@ The package stage compiles nothing. It downloads the jar the commit stage built 
 splits it into layers and places it on a hardened runtime — so the image that reaches production holds the artifact that
 was actually tested, rather than a third independent compile (ADR 0010).
 
-SonarCloud analyses every pull request alongside these stages and gates on an **A** security rating for new code.
-Findings that are deliberate design decisions rather than defects are marked reviewed in SonarCloud, with the reasoning
-recorded in [ADR 0017](docs/adr/0017-accepted-static-analysis-findings.md) so it lives in the repository rather than only
-in a review comment.
+SonarCloud analyses every pull request **inside** these stages rather than beside them. Each module scans itself in the
+job that builds it, hands Sonar the coverage that job produced, and waits for the verdict: `sonar.qualitygate.wait`
+makes a failing gate fail the job, which fails `CI required`, which the ruleset requires. The repository holds six
+Sonar projects — one per service, one for the client, and `Corke123_trackly` for the infrastructure and workflows —
+because a project reports the complete state of what it analyses, and the pipeline only builds what changed
+([ADR 0019](docs/adr/0019-ci-based-sonar-analysis-per-module.md)).
+
+The gate demands an **A** security rating on new code. Findings that are deliberate design decisions rather than
+defects are marked reviewed in SonarCloud, with the reasoning recorded in
+[ADR 0017](docs/adr/0017-accepted-static-analysis-findings.md) so it lives in the repository rather than only in a
+review comment.
 
 `gateway-service` goes through the same three stages as every other service, with one difference: its image ships the
 SPA (ADR 0006), so a change under `trackly-client/**` triggers the gateway's build. The bundle is built once by a
