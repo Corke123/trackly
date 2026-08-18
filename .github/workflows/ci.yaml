@@ -104,11 +104,11 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Analyse the repository and wait for its quality gate
+      - name: Analyse the repository and gate its pull request
         if: env.SONAR_TOKEN != ''
         uses: SonarSource/sonarqube-scan-action@22918119ff8e1ca75a623e15c8296b6ea4fbe28f # v8.2.1
         with:
-          args: -Dsonar.qualitygate.wait=true
+          args: -Dsonar.qualitygate.wait=${{ github.event_name == 'pull_request' }}
 
       - name: Report the skipped analysis
         if: env.SONAR_TOKEN == ''

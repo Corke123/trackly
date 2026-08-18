@@ -207,11 +207,13 @@ jobs:
           retention-days: 7
           if-no-files-found: warn
 
-      - name: Analyse the service and wait for its quality gate
+      - name: Analyse the service and gate its pull request
         if: env.SONAR_TOKEN != ''
+        env:
+          WAIT_FOR_QUALITY_GATE: ${{ github.event_name == 'pull_request' }}
         run: |
           ./mvnw org.sonarsource.scanner.maven:sonar-maven-plugin:5.7.0.6970:sonar \
-            -Dsonar.qualitygate.wait=true
+            -Dsonar.qualitygate.wait="${WAIT_FOR_QUALITY_GATE}"
 
       - name: Report the skipped analysis
         if: env.SONAR_TOKEN == ''
