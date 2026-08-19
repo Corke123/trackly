@@ -1,0 +1,54 @@
+name: DORA metrics
+description: >
+  Computes the four DORA delivery metrics for this repository from the Deployments API and the CI
+  run history, classifies each against the published performance bands, and renders them into the
+  job summary. Written as a JavaScript action rather than a composite one because the computation is
+  a median over paginated API results — a program, not a sequence of steps — and because the Node
+  runtime the platform already provides makes it the cheapest of the three action types to start.
+
+inputs:
+  repository:
+    description: Repository to measure, as owner/name.
+    required: false
+    default: ${{ github.repository }}
+  token:
+    description: Token used to read the deployment and run history.
+    required: true
+  environment:
+    description: Deployment environment that counts as a release to users.
+    required: false
+    default: production
+  workflow:
+    description: Workflow whose runs on the mainline represent the state of the mainline.
+    required: false
+    default: ci.yaml
+  branch:
+    description: Mainline branch.
+    required: false
+    default: main
+  window-days:
+    description: Length of the measurement window, in days, ending now.
+    required: false
+    default: '90'
+  report-path:
+    description: Where to write the markdown report.
+    required: false
+    default: dora-report.md
+
+outputs:
+  deployment-frequency:
+    description: Successful deployments to the environment per week over the window.
+  lead-time-hours:
+    description: Median hours from a commit being authored to it serving traffic.
+  change-failure-rate:
+    description: Share of deployments to the environment that did not succeed, as a percentage.
+  recovery-time-hours:
+    description: Median hours a red mainline stayed red.
+  performance-band:
+    description: Lowest of the four per-metric DORA bands, i.e. the band the project as a whole sits in.
+  report:
+    description: Path of the written markdown report.
+
+runs:
+  using: node24
+  main: index.js

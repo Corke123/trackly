@@ -253,6 +253,13 @@ Every image carries its provenance: `/actuator/info` reports `build.version`, `b
 `/actuator/info` on its own FQDN reports the commit being deployed, which proves the revision is running that code and
 not a cached image.
 
+The pipeline also measures itself. `dora.yaml` computes the four DORA delivery metrics — deployment frequency, lead
+time for changes, change failure rate and failed-deployment recovery time — from this repository's own deployment and
+run history, classifies each against the published performance bands, and fails if the overall band drops below *High*
+([ADR 0020](docs/adr/0020-delivery-performance-is-measured.md)). It splits the lead time into the part the pipeline owns
+and the part it does not (review, and the wait on the production approval gate), because a single number there measures
+the author's habits as much as the pipeline's capability.
+
 Continuous **delivery** builds on this: see [Deploying to Azure](#deploying-to-azure) below, and ADR 0015 for how the
 Terraform and pipeline responsibilities divide.
 
@@ -325,6 +332,7 @@ start on the first request (ADR 0016). Roughly $32/month running, $20/month hibe
 | Workflow | Trigger | What it does |
 |---|---|---|
 | `infra.yaml` | `infra/**` | `terraform plan` on a PR (posted as a comment), apply on `main` |
+| `dora.yaml` | weekly + manual | Measures the four DORA delivery metrics from this repository's own history (ADR 0020) |
 | `rollback.yaml` | manual | Re-points traffic to the previous revision. Does **not** revert migrations |
 | `hibernate.yaml` | nightly + manual | Stops or starts PostgreSQL — the main cost lever |
 | `acr-purge.yaml` | weekly | Keeps ACR Basic under its 10 GB allowance |
