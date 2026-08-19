@@ -129,9 +129,13 @@ async function releases() {
 }
 
 async function mainlineOutages() {
+  // Every completed run on the mainline carries a verdict about the mainline, whatever triggered it.
+  // Filtering to `event=push` made a manual re-run invisible, and a cancelled run carries no verdict
+  // at all — so a push that failed, was fixed by a next commit whose own run was then cancelled, and
+  // was proven green by a manual run, was reported as an outage that never ended.
   const runs = await api(
     `/repos/${repository}/actions/workflows/${workflow}/runs` +
-      `?branch=${branch}&event=push&status=completed&per_page=100`,
+      `?branch=${branch}&status=completed&per_page=100`,
     { paginate: true },
   );
 
@@ -176,22 +180,30 @@ function report(metrics, detail) {
     row('Change failure rate', metrics['change-failure-rate'], '%', 'change-failure-rate'),
     row('Failed-deployment recovery time', metrics['recovery-time-hours'], 'h (median)', 'recovery-time-hours'),
     '',
-    `**Overall band: ${metrics['performance-band']}** — the lowest of the four, because a delivery`,
-    'capability is bounded by its weakest metric.',
+    `**Overall band: ${metrics['performance-band']}** — the lowest of the ${detail.measuredCount} ` +
+      'metric(s) the window could measure, because a delivery capability is bounded by its weakest',
+    'property. A metric with no data in the window does not drag the band down.',
     '',
   ];
 
   if (detail.pipelineMedian !== null) {
     lines.push(
-      `Of the median ${metrics['lead-time-hours']} h lead time, ${detail.pipelineMedian} h is the ` +
-        'pipeline itself (commit pushed to traffic shifted); the remainder is review and the ' +
-        'manual approval gate on the production environment.',
+      `Median lead time is ${metrics['lead-time-hours']} h; the median time the **pipeline** owns ` +
+        `(deployment started to traffic shifted) is ${detail.pipelineMedian} h. The difference is ` +
+        'review and the wait on the production approval gate. These are medians of two ' +
+        'distributions rather than a split of one release.',
       '',
     );
   }
 
-  if (detail.approvalMedian !== null) {
-    lines.push(`Median wait on the production approval gate: ${detail.approvalMedian} h.`, '');
+  // Rendered in minutes: this wait is usually seconds, and two decimal places of an hour print it
+  // as "0 h" — which reads as "there is no approval gate", the opposite of what the gate is for.
+  if (detail.approvalMedianMinutes !== null) {
+    lines.push(
+      `Median wait on the production approval gate: ${detail.approvalMedianMinutes} min ` +
+        `(longest ${detail.approvalMaxMinutes} min).`,
+      '',
+    );
   }
 
   if (detail.unresolved) {
@@ -252,12 +264,16 @@ async function main() {
     ];
 
   const markdown = report(metrics, {
+    measuredCount: Object.keys(bands).filter((m) => metrics[m] !== null).length,
     releases: successful,
     releaseCount: all.length,
     runCount,
     unresolved,
     pipelineMedian: round(median(pipelineTimes)),
-    approvalMedian: round(median(approvalWaits)),
+    // `null * 60` is 0 in JavaScript, so the median is taken before the conversion to minutes —
+    // otherwise an empty window reports a 0 min approval wait rather than no measurement.
+    approvalMedianMinutes: approvalWaits.length ? round(median(approvalWaits) * 60, 1) : null,
+    approvalMaxMinutes: approvalWaits.length ? round(Math.max(...approvalWaits) * 60, 1) : null,
   });
 
   writeFileSync(reportPath, markdown);

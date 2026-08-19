@@ -18,16 +18,32 @@ repository's own history and [`dora.yaml`](../../.github/workflows/dora.yaml) ru
 | Change failure rate | deployment terminal states | non-`success` ÷ all terminal deployments |
 | Recovery time | `ci.yaml` runs on `main` | median time a red mainline stayed red |
 
-Two details are load bearing. `inactive` is **not** read as an outcome: GitHub stamps it on any deployment
-a later one superseded, so every release older than the newest carries it, and treating it as terminal
-silently reduced 19 measured releases to 3 during development. And lead time is measured from the commit's
-**author** date rather than from the push, because the interval the metric is about starts when the work
-was done, not when the developer got round to pushing it.
+Three details are load bearing, and each cost a measurement that looked plausible and was wrong.
 
-The report also splits the lead time into the part the pipeline owns (`in_progress` → `success`) and the
-part it does not (review, and the wait on the production approval gate of ADR 0018). Without that split
-the metric measures the author's habits as much as the pipeline, and no improvement to the pipeline can be
-told from an improvement in how promptly someone clicks *Approve*.
+`inactive` is **not** read as an outcome: GitHub stamps it on any deployment a later one superseded, so
+every release older than the newest carries it, and treating it as terminal silently reduced 19 measured
+releases to 3 during development.
+
+Lead time is measured from the commit's **author** date rather than from the push, because the interval
+the metric is about starts when the work was done, not when the developer got round to pushing it.
+
+Recovery time reads **every** completed run on the mainline, not only `event=push` ones. A cancelled run
+carries no verdict, so the sequence "a push fails → the next commit fixes it → that commit's run is
+cancelled → a manual run proves the mainline green" left the outage permanently open. The first report
+published from this action claimed the mainline was red four days after it had gone green, and dropped a
+real 2.90 h outage from the median for being unresolved. A manual run over the mainline's tree is as much
+a verdict about the mainline as a push-triggered one, and excluding it made the tool blind to exactly the
+evidence that settled the question.
+
+The report also states the part the pipeline owns (`in_progress` → `success`) beside the whole lead time.
+Without it the metric measures the author's habits as much as the pipeline, and no improvement to the
+pipeline can be told from an improvement in how promptly someone clicks *Approve*. The two are medians of
+their own distributions rather than a split of a single release, and the report says so rather than
+implying a decomposition it has not computed.
+
+The approval wait is rendered in **minutes**. It is usually seconds — a median of 0.3 min against a
+longest of 78.9 min — and two decimal places of an hour printed it as `0 h`, which reads as *there is no
+approval gate*: the precise opposite of what that gate exists to demonstrate (ADR 0018).
 
 ## Why a JavaScript action
 
@@ -58,8 +74,8 @@ fifteen lines and removes the problem.
 ## Consequences
 
 - The measured result at the time of writing, over a 90-day window: **1.48 deployments/week** (High),
-  **0.4 h** median lead time (Elite), **0 %** change failure rate (Elite), **1.23 h** median recovery
-  (High) — overall **High**, bounded by deployment frequency.
+  **0.4 h** median lead time (Elite), **0 %** change failure rate (Elite), **1.49 h** median recovery
+  (High) — overall **High**, bounded by deployment frequency. Three outages over 39 mainline runs.
 - Deployment frequency is the weak metric and it is *not* a pipeline limitation: this is a one-person
   academic project, so there is nothing to deploy most weeks. Read as a capability rather than a habit, the
   0.4 h lead time is the number that says what the pipeline can do.
