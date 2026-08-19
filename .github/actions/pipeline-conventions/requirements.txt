@@ -1,0 +1,10 @@
+# The checker's only dependency, in a manifest rather than an inline `pip install`, because
+# Dependabot's pip ecosystem parses manifests and cannot see a version pinned in a RUN line.
+#
+# Hash-pinned for the same reason the workflows pin actions to commit SHAs: a version number says
+# which release was asked for, a hash says which bytes arrived. Both musllinux wheels are listed so
+# the image builds on an x86_64 runner and on an arm64 workstation from the same locked artefact set.
+# Dependabot rewrites the version and the hashes together.
+pyyaml==6.0.3 \
+    --hash=sha256:eda16858a3cab07b80edaf74336ece1f986ba330fdb8ee0d6c0d68fe82bc96be \
+    --hash=sha256:f7057c9a337546edc7973c0d3ba84ddcdf0daa14533c2065749c9075001090e6
