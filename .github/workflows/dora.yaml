@@ -1,0 +1,60 @@
+name: DORA metrics
+
+# The thesis argues (Ch 3.1.7, Ch 3.3) that a delivery pipeline should be judged by the DORA metrics
+# rather than by the features it lists. This workflow measures them for this repository so the claim
+# is answerable with data, and it runs on a schedule because the metrics are a trend, not an event.
+
+on:
+  schedule:
+    - cron: '0 5 * * 1'
+  workflow_dispatch:
+    inputs:
+      window-days:
+        description: Length of the measurement window, in days
+        type: string
+        default: '90'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dora
+  cancel-in-progress: false
+
+jobs:
+  measure:
+    name: Measure delivery performance
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+      deployments: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - id: dora
+        uses: ./.github/actions/dora-metrics
+        with:
+          token: ${{ github.token }}
+          window-days: ${{ inputs.window-days || '90' }}
+
+      - name: Upload the report
+        uses: actions/upload-artifact@v7
+        with:
+          name: dora-report
+          path: ${{ steps.dora.outputs.report }}
+          retention-days: 90
+          if-no-files-found: error
+
+      - name: Fail if delivery performance has regressed below the High band
+        env:
+          BAND: ${{ steps.dora.outputs.performance-band }}
+        run: |
+          set -euo pipefail
+          case "$BAND" in
+            Elite|High) echo "Delivery performance: ${BAND}" ;;
+            *) echo "::error::Delivery performance fell to ${BAND}"; exit 1 ;;
+          esac
