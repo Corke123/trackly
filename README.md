@@ -257,7 +257,10 @@ bearing — the package stage builds the image from them. A failure on
 Every image carries its provenance: `/actuator/info` reports `build.version`, `build.revision` (the commit),
 `build.buildNumber` and `build.buildUrl`. The blue-green deploy asserts on it — a new revision only takes traffic once
 `/actuator/info` on its own FQDN reports the commit being deployed, which proves the revision is running that code and
-not a cached image.
+not a cached image. After the traffic shift the same assertion is repeated through the environment's *public*
+ingress — the only check that can prove the shift itself took effect — together with the document root, because the
+SPA ships as a layer of that image. If it fails, traffic is re-pointed to the previous revision **automatically**
+([ADR 0023](docs/adr/0023-production-verifies-itself-and-rolls-back.md)).
 
 Each image also ships an inventory of itself: the package stage emits a CycloneDX SBOM and attests it alongside the
 build provenance, so what reached production is answerable without pulling the image. Beside these blocking gates,
