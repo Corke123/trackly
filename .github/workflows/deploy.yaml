@@ -102,6 +102,25 @@ jobs:
           external: 'true'
           expected-sha: ${{ github.sha }}
 
+      - id: verify
+        name: Verify the release through the public ingress
+        env:
+          FQDN: ${{ steps.gateway-url.outputs.fqdn }}
+          EXPECTED_SHA: ${{ github.sha }}
+          ENVIRONMENT: ${{ inputs.environment }}
+        run: .github/scripts/verify-release.sh
+
+      # Only a failed *verification* rolls back. A deploy step that failed before its traffic shift
+      # leaves the previous revision serving, and rolling back from there would retire a revision that
+      # is working — so the condition is the verify step's own outcome, not the job's.
+      - name: Roll back automatically
+        if: always() && steps.verify.outcome == 'failure'
+        env:
+          ENVIRONMENT: ${{ inputs.environment }}
+          SERVICE: all
+          RG: ${{ vars.RESOURCE_GROUP }}
+        run: .github/scripts/rollback.sh
+
       - name: Report live traffic
         if: always()
         env:

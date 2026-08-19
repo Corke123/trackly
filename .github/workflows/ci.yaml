@@ -90,6 +90,18 @@ jobs:
           advanced-security: false
           annotations: true
 
+      - name: Parse every shell script
+        run: |
+          set -euo pipefail
+          # actionlint and zizmor read workflow YAML and the shell inside `run:` blocks, not the external
+          # scripts those blocks call. A syntax error in one of these is invisible until the job runs it,
+          # and a deploy script that dies on a stray quote dies after the release has already started.
+          shopt -s nullglob
+          for script in .github/scripts/*.sh infra/*.sh; do
+            bash -n "$script" || { echo "::error file=$script::not valid bash"; exit 1; }
+            echo "  ok  $script"
+          done
+
       - name: Assert every service is wired into the pipeline
         uses: ./.github/actions/pipeline-conventions
         with:
