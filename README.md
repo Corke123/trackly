@@ -259,6 +259,13 @@ Every image carries its provenance: `/actuator/info` reports `build.version`, `b
 `/actuator/info` on its own FQDN reports the commit being deployed, which proves the revision is running that code and
 not a cached image.
 
+Each image also ships an inventory of itself: the package stage emits a CycloneDX SBOM and attests it alongside the
+build provenance, so what reached production is answerable without pulling the image. Beside these blocking gates,
+`codeql.yaml` runs CodeQL over the Java, the TypeScript and — the one most CI/CD writing forgets — the workflows
+themselves, on pull requests, on `main`, and weekly, because a query pack updated after a merge finds nothing until
+something re-runs ([ADR 0022](docs/adr/0022-supply-chain-scanned-at-every-layer.md)). It is deliberately advisory
+rather than blocking; the reasoning is in the ADR.
+
 The pipeline also measures itself. `dora.yaml` computes the four DORA delivery metrics — deployment frequency, lead
 time for changes, change failure rate and failed-deployment recovery time — from this repository's own deployment and
 run history, classifies each against the published performance bands, and fails if the overall band drops below *High*
@@ -281,7 +288,7 @@ Read what it would do, then apply it:
 ```
 
 It is idempotent and each section can be applied on its own — `labels`, `merge-settings`,
-`workflow-permissions`, `ruleset`, `dependabot`, `environments`. What it sets:
+`workflow-permissions`, `ruleset`, `dependabot`, `secret-scanning`, `environments`. What it sets:
 
 | Section | Why |
 |---|---|
@@ -290,6 +297,7 @@ It is idempotent and each section can be applied on its own — `labels`, `merge
 | `merge-settings` | Squash and rebase only — merge commits would be rejected by the linear-history rule after the UI offered them. Auto-merge on, so a green PR lands without a second visit |
 | `workflow-permissions` | `GITHUB_TOKEN` read-only by default; jobs request more where they need it (Ch 5.4) |
 | `dependabot` | Security alerts and automated security fixes. The version updates in `dependabot.yml` are a separate feature and work without these |
+| `secret-scanning` | Secret scanning and **push protection**, so a committed credential is refused at push time rather than found after it is already in the history (ADR 0022) |
 | `environments` | `staging` and `production` deployable from `main` only, and required reviewers on `production` — see [Deploying to Azure](#deploying-to-azure) |
 
 ## Deploying to Azure
@@ -338,6 +346,7 @@ start on the first request (ADR 0016). Roughly $32/month running, $20/month hibe
 | Workflow | Trigger | What it does |
 |---|---|---|
 | `infra.yaml` | `infra/**` | `terraform plan` on a PR (posted as a comment), apply on `main` |
+| `codeql.yaml` | PR, `main`, weekly | CodeQL over the Java, the TypeScript and the workflows themselves (ADR 0022) |
 | `dora.yaml` | weekly + manual | Measures the four DORA delivery metrics from this repository's own history (ADR 0020) |
 | `rollback.yaml` | manual | Re-points traffic to the previous revision. Does **not** revert migrations |
 | `hibernate.yaml` | nightly + manual | Stops or starts PostgreSQL — the main cost lever |

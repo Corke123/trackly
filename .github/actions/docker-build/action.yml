@@ -121,12 +121,37 @@ runs:
         sarif_file: trivy-image.sarif
         category: trivy-${{ inputs.service }}
 
+    - name: Inventory what is in the image
+      uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+      with:
+        image-ref: ${{ steps.tag.outputs.image-tag }}
+        scan-type: image
+        format: cyclonedx
+        output: sbom.cdx.json
+
+    - name: Publish the inventory alongside the run
+      uses: actions/upload-artifact@v7
+      with:
+        name: ${{ inputs.service }}-sbom
+        path: sbom.cdx.json
+        retention-days: 90
+        if-no-files-found: error
+
     - name: Attest that this pipeline built the image
       if: inputs.push == 'true'
       uses: actions/attest-build-provenance@v4
       with:
         subject-name: ${{ inputs.registry }}/${{ inputs.image-name }}
         subject-digest: ${{ steps.build.outputs.digest }}
+        push-to-registry: false
+
+    - name: Attest what the image contains
+      if: inputs.push == 'true'
+      uses: actions/attest-sbom@v4
+      with:
+        subject-name: ${{ inputs.registry }}/${{ inputs.image-name }}
+        subject-digest: ${{ steps.build.outputs.digest }}
+        sbom-path: sbom.cdx.json
         push-to-registry: false
 
     - name: Add the scan result to the job summary
