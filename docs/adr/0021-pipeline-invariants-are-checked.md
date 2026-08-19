@@ -40,6 +40,30 @@ The cost is honest and worth stating: a container action pays an image build (~2
 within a job's lifetime but not across runs) that a composite action does not, and it is Linux-only. Both
 are acceptable for a job that already runs `actionlint` and `zizmor` and only ever runs on `ubuntu-latest`.
 
+## What the quality gate said about the checker
+
+The first version of this action failed SonarCloud's quality gate: three findings on its `Dockerfile`
+dropped the security rating on new code to **C**, and the gate demands **A** (ADR 0017). All three were
+real, all three are now fixed rather than accepted, and the fixes are the reason this section exists — a
+tool that checks this repository's hygiene is a poor place to be the exception to it.
+
+| Rule | Finding | Fix |
+|---|---|---|
+| `docker:S6471` | the `python` image runs as `root` | `USER 1001` |
+| `docker:S8541` | omitting `--only-binary :all:` allows an sdist's setup script to run during install | `--only-binary :all:` |
+| `docker:S8544` | the dependency's resolved version is not locked | `--require-hashes` |
+
+`USER 1001` is not an arbitrary number: it is the UID the runner owns the mounted workspace as. The checker
+only reads the workspace, and matching that UID keeps the two files it appends to — `GITHUB_STEP_SUMMARY`
+and `GITHUB_OUTPUT` — writable without root. Verified by running the image as UID 1001 against a read-only
+workspace mount with both files owned by 1001: it read the tree, wrote the summary, and wrote its outputs.
+
+Hash-pinning the dependency is the same argument the workflows make for pinning actions to commit SHAs: a
+version number says which release was asked for, a hash says which bytes arrived. Both musllinux wheels are
+listed so the image builds on an x86_64 runner and an arm64 workstation from one locked artefact set.
+Verified negatively as well — replacing the hashes with wrong ones fails the build, so the pin is load
+bearing rather than decorative.
+
 ## Considered options
 
 - **A composite action running `python3`** — what `maven-report-summary` does, and what this started as. It
