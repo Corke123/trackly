@@ -90,6 +90,11 @@ jobs:
           advanced-security: false
           annotations: true
 
+      - name: Assert every service is wired into the pipeline
+        uses: ./.github/actions/pipeline-conventions
+        with:
+          min-coverage: '0.85'
+
   sonar-repository:
     name: Analyse infrastructure and workflows
     runs-on: ubuntu-latest

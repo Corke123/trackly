@@ -1,0 +1,30 @@
+name: Pipeline conventions
+description: >
+  Asserts the invariants that make this monorepo's pipeline correct but that no single file can
+  enforce: that every service is wired into change detection, the deploy, Dependabot and a coverage
+  gate, and that every job is bounded by a timeout and a permissions block. Runs as a Docker
+  container action so the checker's interpreter and its one dependency are pinned in an image rather
+  than inherited from whatever the runner image happens to ship.
+
+inputs:
+  services-root:
+    description: Directory whose immediate children are candidate services.
+    required: false
+    default: '.'
+  min-coverage:
+    description: Unit-coverage minimum every service's JaCoCo gate must demand, at least.
+    required: false
+    default: '0.85'
+
+outputs:
+  services:
+    description: Space-separated services that were discovered and checked.
+  violations:
+    description: Number of violations found.
+
+runs:
+  using: docker
+  image: Dockerfile
+  args:
+    - ${{ inputs.services-root }}
+    - ${{ inputs.min-coverage }}

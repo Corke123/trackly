@@ -118,3 +118,17 @@ updates:
       interval: weekly
       day: monday
     labels: [ dependencies, docker ]
+
+  - package-ecosystem: docker
+    directory: /.github/actions/pipeline-conventions
+    schedule:
+      interval: weekly
+      day: monday
+    labels: [ dependencies, docker, ci ]
+
+  - package-ecosystem: pip
+    directory: /.github/actions/pipeline-conventions
+    schedule:
+      interval: weekly
+      day: monday
+    labels: [ dependencies, ci ]

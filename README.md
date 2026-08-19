@@ -239,6 +239,12 @@ The journeys stub the gateway's API rather than starting the stack: what they ar
 Testcontainers tests. A full-stack smoke test belongs against a deployed staging environment, so it arrives with
 continuous delivery.
 
+Beside the per-service stages, the `lint` job runs `actionlint`, `zizmor` and a container action that asserts the
+pipeline's own wiring invariants — that every service has a coverage gate and appears in change detection, the deploy
+and Dependabot, and that every job is bounded by a timeout and a permissions block
+([ADR 0021](docs/adr/0021-pipeline-invariants-are-checked.md)). Adding a service now fails the pull request until it is
+wired in, naming the file that is missing it.
+
 **`CI required`** is the single aggregating status check to require in branch protection — the matrix and
 reusable-workflow job names change as services are added, that one does not.
 
