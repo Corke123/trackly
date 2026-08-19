@@ -32,9 +32,10 @@ This is the repository's only **Docker container action**, and the reason is the
 Ch 5.1.4.1: the action carries its own runtime. The checker parses YAML, so it needs a YAML library; on a
 GitHub-hosted runner it would inherit whatever Python and PyYAML the current `ubuntu-latest` image happens
 to ship, and the runner image changes monthly without asking. A checker whose *own* behaviour drifts with
-the runner image is a poor instrument for detecting drift. `python:3.13-alpine3.22` plus a pinned
-`pyyaml==6.0.3` in an image that Dependabot watches makes its verdict a property of this repository, and a
-reproducible one: two runs a month apart reach the same conclusion about the same tree.
+the runner image is a poor instrument for detecting drift. `python:3.13-alpine3.22` plus a pinned,
+hash-verified `pyyaml` makes its verdict a property of this repository rather than of this month's runner
+image. The pin is to the minor line, not to a digest, so the interpreter still moves at patch level when
+the image is rebuilt; what it cannot do is arrive as a different Python.
 
 The cost is honest and worth stating: a container action pays an image build (~20 s, cached across runs
 within a job's lifetime but not across runs) that a composite action does not, and it is Linux-only. Both
@@ -83,8 +84,42 @@ bearing rather than decorative.
 - Adding a fifth service now fails the pull request until it is wired in, with a message naming the file.
 - The checker's thresholds are inputs, so tightening the coverage floor is a one-line change in `ci.yaml`
   rather than an edit to four POMs and the checker.
-- `.github/actions/pipeline-conventions` is in `dependabot.yml` under both `docker` and `pip`, so its base
-  image and its one library are updated on the same weekly cadence as everything else. The library lives in
-  a `requirements.txt` rather than in an inline `pip install` in the `Dockerfile`, because Dependabot's pip
-  ecosystem parses manifests and cannot see a version pinned in a `RUN` line — the entry would have been
-  decorative, which is the failure mode ADR 0018 is about.
+- `.github/actions/pipeline-conventions` is in `dependabot.yml` under `pip`, so its one library is updated
+  on the same weekly cadence as everything else. The library lives in a `requirements.txt` rather than in
+  an inline `pip install` in the `Dockerfile`, because Dependabot's pip ecosystem parses manifests and
+  cannot see a version pinned in a `RUN` line — the entry would have been decorative, which is the failure
+  mode ADR 0018 is about.
+
+- It is **not** under `docker`, and that entry was removed after one week of it failing. The reasoning, and
+  what to do if base-image automation is wanted later, is below.
+
+## Why there is no `docker` Dependabot entry for this action
+
+The entry was added with the action and failed on its first scheduled run. Dependabot resolved the base
+image's latest tag as `3.14-alpine3.22`, tried to write `3.13-alpine3.22 → 3.14-alpine3.22`, and GitHub
+rejected the pull request with `400 The request contains invalid or unauthorized changes`, surfaced by the
+updater as `dependency_file_not_supported`.
+
+**The cause was not established.** Two candidates, neither confirmed: GitHub may refuse a non-`github-actions`
+ecosystem write inside `.github/`, or this may be the open upstream bug
+[dependabot-core#11320](https://github.com/dependabot/dependabot-core/issues/11320), which reports the same
+error for a `Containerfile` that is *not* under `.github/`. The repository offered no way to distinguish
+them: every other `docker` entry tracks `eclipse-temurin:25-jre-alpine`, a floating tag that is always
+current, so no other entry has ever attempted a write to compare against.
+
+The entry was removed rather than diagnosed further, because on inspection it had **no useful work to do**:
+
+- `python:3.13-alpine3.22` floats within its line, and this image is rebuilt from scratch on every pull
+  request and never pushed to a registry, so interpreter and Alpine **patches arrive without a commit**.
+  This is the opposite of the service images, which are built once, pushed, and then run for weeks
+  (ADR 0010) — those genuinely need a commit to move.
+- The only change a Dependabot commit could make is a **minor or major** line bump, and that is precisely
+  what this container exists to prevent from happening unattended. A checker whose interpreter changes
+  under it is a poor instrument for detecting change.
+
+So a weekly-failing job was replaced by no job, and nothing is now unwatched that was watched before. If
+base-image automation is wanted later, the ordered options are: pin the image by digest and let the `docker`
+ecosystem propose digest bumps (which tests the `.github/` hypothesis directly, since it is the same write);
+or move the action out of `.github/` — a local action may live at any path, so `uses: ./ci/pipeline-conventions`
+works — remembering that the `shared` path filter in `ci.yaml` would then need to cover the new location or
+editing the checker would silently stop rebuilding anything.
