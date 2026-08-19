@@ -8,8 +8,8 @@ SECTIONS=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --dry-run) DRY_RUN=1 ;;
-    labels | merge-settings | workflow-permissions | ruleset | dependabot | environments) SECTIONS+=("$1") ;;
-    all) SECTIONS=(labels merge-settings workflow-permissions ruleset dependabot environments) ;;
+    labels | merge-settings | workflow-permissions | ruleset | dependabot | secret-scanning | environments) SECTIONS+=("$1") ;;
+    all) SECTIONS=(labels merge-settings workflow-permissions ruleset dependabot secret-scanning environments) ;;
     -h | --help)
       cat <<'USAGE'
 Usage: harden-repo.sh [--dry-run] <section...|all>
@@ -20,6 +20,7 @@ Sections, in the order they should be applied:
   workflow-permissions  read-only default token for every workflow
   ruleset               the ruleset on the default branch
   dependabot            security alerts and automated security fixes
+  secret-scanning       secret scanning, and push protection so a leak is refused rather than reported
   environments          deployment branch policies, and required reviewers on production
 
 --dry-run prints every mutating call without making it. Reads still happen.
@@ -187,6 +188,18 @@ do_dependabot() {
   echo "    automated security fixes enabled"
 }
 
+do_secret_scanning() {
+  echo "==> Secret scanning"
+  api PATCH "repos/${REPO}" '{
+    "security_and_analysis": {
+      "secret_scanning": { "status": "enabled" },
+      "secret_scanning_push_protection": { "status": "enabled" },
+      "secret_scanning_non_provider_patterns": { "status": "enabled" }
+    }
+  }'
+  echo "    a credential committed to a branch is refused at push time, not found afterwards"
+}
+
 do_environments() {
   echo "==> Environments"
 
@@ -246,6 +259,7 @@ for section in "${SECTIONS[@]}"; do
     workflow-permissions) do_workflow_permissions ;;
     ruleset) do_ruleset ;;
     dependabot) do_dependabot ;;
+    secret-scanning) do_secret_scanning ;;
     environments) do_environments ;;
   esac
 done
@@ -260,6 +274,7 @@ Done. Verify with:
   gh api repos/${REPO}/rulesets --jq '.[].name'
   gh api repos/${REPO}/environments --jq '.environments[]|{name,rules:[.protection_rules[]?.type]}'
   gh api repos/${REPO}/vulnerability-alerts -i | head -1
+  gh api repos/${REPO} --jq '.security_and_analysis|{secret_scanning:.secret_scanning.status,push_protection:.secret_scanning_push_protection.status}'
   gh label list --limit 30
 EOF
 fi
