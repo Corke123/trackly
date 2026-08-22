@@ -7,6 +7,7 @@ import org.unibl.etf.pisio.boardservice.domain.Swimlane;
 import org.unibl.etf.pisio.boardservice.domain.Ticket;
 import org.unibl.etf.pisio.boardservice.domain.event.TicketAssigned;
 import org.unibl.etf.pisio.boardservice.domain.event.TicketCreated;
+import org.unibl.etf.pisio.boardservice.domain.event.TicketDeleted;
 import org.unibl.etf.pisio.boardservice.domain.event.TicketMoved;
 import org.unibl.etf.pisio.boardservice.exception.BoardNotFoundException;
 import org.unibl.etf.pisio.boardservice.exception.SwimlaneNotEmptyException;
@@ -164,6 +165,17 @@ public class BoardService {
         publisher.publish(new TicketAssigned(ticketId, assignedTicket.boardId(), assignedTicket.title(),
                 assigneeId, actorId, Instant.now()));
         return savedTicket;
+    }
+
+    public void deleteTicket(Long ticketId, String actorId) {
+        Ticket ticket = requireTicket(ticketId);
+        Board board = requireBoard(ticket.boardId());
+
+        ticketRepository.delete(ticket);
+
+        publisher.publish(new TicketDeleted(ticketId, ticket.boardId(), ticket.swimlaneId(),
+                ticket.title(), board.swimlaneTitle(ticket.swimlaneId()), ticket.assigneeId(),
+                actorId, Instant.now()));
     }
 
     @Transactional(readOnly = true)

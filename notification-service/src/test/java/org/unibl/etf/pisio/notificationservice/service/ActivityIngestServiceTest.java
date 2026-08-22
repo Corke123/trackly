@@ -216,9 +216,9 @@ class ActivityIngestServiceTest {
     void ingestUnknownEventType() {
         when(activities.existsByEventId("event-1")).thenReturn(false);
 
-        assertThatThrownBy(() -> activityIngestService.ingest("event-1", "TicketDeleted", "{}"))
+        assertThatThrownBy(() -> activityIngestService.ingest("event-1", "TicketArchived", "{}"))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("TicketDeleted")
+                .hasMessageContaining("TicketArchived")
                 .hasCauseInstanceOf(IllegalArgumentException.class);
 
         verify(activities, never()).save(any());
