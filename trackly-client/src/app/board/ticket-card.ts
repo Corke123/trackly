@@ -23,7 +23,11 @@ export class TicketCard {
   /** Every other swimlane, so the card can offer somewhere to move to. */
   readonly otherSwimlanes = input<readonly Swimlane[]>([]);
 
+  readonly isAdmin = input<boolean>(false);
+
   readonly assign = output<Ticket>();
+
+  readonly delete = output<Ticket>();
 
   readonly move = output<MoveTicketRequest>();
 

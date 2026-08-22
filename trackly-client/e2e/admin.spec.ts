@@ -54,6 +54,24 @@ test.describe('what an admin can do', () => {
     await expect(page.getByTestId('delete-swimlane-10')).toBeDisabled();
   });
 
+  test('deletes a ticket once it has been confirmed', async ({ page, adminBoard }) => {
+    await page.getByTestId('ticket-menu-100').click();
+    await page.getByTestId('delete-ticket-100').click();
+    await page.getByTestId('confirm-accept').click();
+
+    await expect(page.getByTestId('ticket-100')).toHaveCount(0);
+    expect(adminBoard.titlesIn(10)).toEqual([]);
+  });
+
+  test('keeps a ticket when the deletion is not confirmed', async ({ page, adminBoard }) => {
+    await page.getByTestId('ticket-menu-100').click();
+    await page.getByTestId('delete-ticket-100').click();
+    await page.getByTestId('confirm-cancel').click();
+
+    await expect(page.getByTestId('ticket-100')).toBeVisible();
+    expect(adminBoard.titlesIn(10)).toEqual(['Wire up the pipeline']);
+  });
+
   test('reorders swimlanes from the menu', async ({ page, adminBoard }) => {
     await page.getByTestId('swimlane-menu-30').click();
     await page.getByTestId('swimlane-move-left-30').click();

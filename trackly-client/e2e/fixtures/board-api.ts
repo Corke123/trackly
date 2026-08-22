@@ -115,6 +115,12 @@ export class FakeBoard {
     return ticket;
   }
 
+  deleteTicket(ticketId: number): boolean {
+    const held = this.tickets.some((candidate) => candidate.id === ticketId);
+    this.tickets = this.tickets.filter((candidate) => candidate.id !== ticketId);
+    return held;
+  }
+
   /** Where the tickets in a swimlane sit, in order — what a drag is judged by. */
   titlesIn(swimlaneId: number): string[] {
     return this.tickets
@@ -248,6 +254,17 @@ export async function installBoardApi(
     }
 
     const ticketMatch = /^\/api\/tickets\/(\d+)$/.exec(path);
+    if (ticketMatch && method === 'DELETE') {
+      if (!board.admin) {
+        return forbidden(route);
+      }
+      const ticketId = Number(ticketMatch[1]);
+      if (!board.deleteTicket(ticketId)) {
+        return json(route, { status: 404, detail: `Ticket ${ticketId} not found` }, 404);
+      }
+      return route.fulfill({ status: 204, body: '' });
+    }
+
     if (ticketMatch && method === 'PATCH') {
       const ticketId = Number(ticketMatch[1]);
       const updated =

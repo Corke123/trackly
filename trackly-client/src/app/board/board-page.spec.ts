@@ -33,6 +33,7 @@ describe('BoardPage', () => {
       createTicket: vi.fn(),
       moveTicket: vi.fn(),
       assignTicket: vi.fn(),
+      deleteTicket: vi.fn(),
     };
   }
 
@@ -160,6 +161,30 @@ describe('BoardPage', () => {
       const deleteItem = queryOverlay('delete-swimlane-10');
 
       expect(deleteItem?.hasAttribute('disabled')).toBe(true);
+    });
+
+    it('deletes a ticket only after it has been confirmed', async () => {
+      await asAdmin();
+      dialogResult = true;
+
+      query(fixture, 'ticket-menu-100')?.click();
+      await fixture.whenStable();
+      clickOverlay('delete-ticket-100');
+      await fixture.whenStable();
+
+      expect(store.deleteTicket).toHaveBeenCalledWith(100);
+    });
+
+    it('keeps the ticket when the confirmation is declined', async () => {
+      await asAdmin();
+      dialogResult = false;
+
+      query(fixture, 'ticket-menu-100')?.click();
+      await fixture.whenStable();
+      clickOverlay('delete-ticket-100');
+      await fixture.whenStable();
+
+      expect(store.deleteTicket).not.toHaveBeenCalled();
     });
 
     it('moves a swimlane one place to the right from its menu', async () => {

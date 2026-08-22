@@ -2,7 +2,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { of, throwError } from 'rxjs';
-import { aBoard, aTicket, someUsers } from '../../testing/board.fixtures';
+import { aBoard, aSwimlane, aTicket, someUsers } from '../../testing/board.fixtures';
 import { BoardApiService } from './board-api.service';
 import { BoardStore } from './board.store';
 import { NotificationService } from './notification.service';
@@ -18,6 +18,7 @@ describe('BoardStore', () => {
     createTicket: ReturnType<typeof vi.fn>;
     moveTicket: ReturnType<typeof vi.fn>;
     assignTicket: ReturnType<typeof vi.fn>;
+    deleteTicket: ReturnType<typeof vi.fn>;
     listUsers: ReturnType<typeof vi.fn>;
   };
   let notifications: { notify: ReturnType<typeof vi.fn>; reportError: ReturnType<typeof vi.fn> };
@@ -34,6 +35,7 @@ describe('BoardStore', () => {
       createTicket: vi.fn(),
       moveTicket: vi.fn().mockReturnValue(of(aTicket())),
       assignTicket: vi.fn(),
+      deleteTicket: vi.fn(),
       listUsers: vi.fn().mockReturnValue(of(someUsers())),
     };
     notifications = { notify: vi.fn(), reportError: vi.fn() };
@@ -244,6 +246,46 @@ describe('BoardStore', () => {
 
       expect(api.assignTicket).toHaveBeenCalledWith(100, 'demo');
       expect(laneById(store, 10).tickets[0].assigneeId).toBe('demo');
+    });
+
+    it('removes a deleted ticket and closes the gap it leaves behind', async () => {
+      api.deleteTicket.mockReturnValue(of(undefined));
+
+      await store.deleteTicket(100);
+
+      expect(api.deleteTicket).toHaveBeenCalledWith(100);
+      expect(laneById(store, 10).tickets).toEqual([]);
+    });
+
+    it('renumbers the tickets left in the lane after a deletion', async () => {
+      api.deleteTicket.mockReturnValue(of(undefined));
+      const lane = aSwimlane({
+        id: 10,
+        title: 'To Do',
+        tickets: [
+          aTicket({ id: 100, title: 'First', position: 0 }),
+          aTicket({ id: 101, title: 'Doomed', position: 1 }),
+          aTicket({ id: 102, title: 'Third', position: 2 }),
+        ],
+      });
+      api.getBoard.mockReturnValue(of(aBoard({ swimlanes: [lane] })));
+      await store.load();
+
+      await store.deleteTicket(101);
+
+      expect(laneById(store, 10).tickets.map((ticket) => [ticket.id, ticket.position])).toEqual([
+        [100, 0],
+        [102, 1],
+      ]);
+    });
+
+    it('keeps the ticket and says why when a deletion is refused', async () => {
+      api.deleteTicket.mockReturnValue(throwError(() => problem(403, 'Access Denied')));
+
+      await store.deleteTicket(100);
+
+      expect(laneById(store, 10).tickets.map((ticket) => ticket.id)).toEqual([100]);
+      expect(notifications.reportError).toHaveBeenCalledWith('Access Denied');
     });
 
     it('explains why an assignment did not take', async () => {
