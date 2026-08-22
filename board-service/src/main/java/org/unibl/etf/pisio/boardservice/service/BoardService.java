@@ -173,6 +173,11 @@ public class BoardService {
 
         ticketRepository.delete(ticket);
 
+        List<Ticket> remaining = ticketRepository.findBySwimlaneIdOrderByPositionAsc(ticket.swimlaneId()).stream()
+                .filter(candidate -> !candidate.id().equals(ticketId))
+                .toList();
+        ticketRepository.saveAll(renumbered(remaining, null));
+
         publisher.publish(new TicketDeleted(ticketId, ticket.boardId(), ticket.swimlaneId(),
                 ticket.title(), board.swimlaneTitle(ticket.swimlaneId()), ticket.assigneeId(),
                 actorId, Instant.now()));
