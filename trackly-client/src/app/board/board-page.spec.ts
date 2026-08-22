@@ -92,6 +92,14 @@ describe('BoardPage', () => {
       expect(query(fixture, 'add-swimlane')).toBeNull();
     });
 
+    it('is offered no way to delete a ticket', async () => {
+      query(fixture, 'ticket-menu-100')?.click();
+      await fixture.whenStable();
+
+      expect(queryOverlay('assign-ticket-100')).not.toBeNull();
+      expect(queryOverlay('delete-ticket-100')).toBeNull();
+    });
+
     it('is offered no swimlane actions at all', () => {
       expect(query(fixture, 'swimlane-menu-10')).toBeNull();
       expect(query(fixture, 'swimlane-handle-10')).toBeNull();
