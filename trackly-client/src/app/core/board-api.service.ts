@@ -58,6 +58,10 @@ export class BoardApiService {
     return this.http.patch<Ticket>(`${this.baseUrl}/tickets/${ticketId}`, { assigneeId });
   }
 
+  deleteTicket(ticketId: number): Observable<void> {
+    return this.http.delete<void>(`${this.baseUrl}/tickets/${ticketId}`);
+  }
+
   listUsers(): Observable<User[]> {
     return this.http.get<User[]>(`${this.baseUrl}/users`);
   }

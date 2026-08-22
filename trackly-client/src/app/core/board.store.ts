@@ -198,6 +198,30 @@ export class BoardStore {
     }
   }
 
+  async deleteTicket(ticketId: number): Promise<void> {
+    try {
+      await firstValueFrom(this.api.deleteTicket(ticketId));
+      this.boardState.update((current) =>
+        current === null
+          ? current
+          : {
+              ...current,
+              swimlanes: current.swimlanes.map((lane) =>
+                lane.tickets.some((ticket) => ticket.id === ticketId)
+                  ? renumber(
+                      lane,
+                      lane.tickets.filter((ticket) => ticket.id !== ticketId),
+                    )
+                  : lane,
+              ),
+            },
+      );
+      this.notifications.notify('Ticket deleted.');
+    } catch (error) {
+      this.notifications.reportError(describeError(error, 'The ticket could not be deleted.'));
+    }
+  }
+
   private async loadUsers(): Promise<void> {
     try {
       this.usersState.set(await firstValueFrom(this.api.listUsers()));

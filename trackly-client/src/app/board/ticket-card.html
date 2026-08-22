@@ -41,6 +41,16 @@
     <span>Assign…</span>
   </button>
 
+  <button
+    mat-menu-item
+    type="button"
+    [attr.data-testid]="'delete-ticket-' + ticket().id"
+    (click)="delete.emit(ticket())"
+  >
+    <mat-icon svgIcon="delete" />
+    <span>Delete ticket</span>
+  </button>
+
   @if (otherSwimlanes().length > 0) {
     <button
       mat-menu-item

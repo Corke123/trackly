@@ -53,7 +53,9 @@
         [cdkDragData]="ticket"
         [ticket]="ticket"
         [otherSwimlanes]="otherSwimlanes()"
+        [isAdmin]="isAdmin()"
         (assign)="assignTicket.emit($event)"
+        (delete)="deleteTicket.emit($event)"
         (move)="onMoveRequested($event)"
       />
     } @empty {

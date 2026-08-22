@@ -53,6 +53,12 @@ describe('BoardApiService', () => {
     http.expectOne({ method: 'DELETE', url: '/api/boards/1/swimlanes/10' }).flush(null);
   });
 
+  it('deletes a ticket', () => {
+    api.deleteTicket(100).subscribe();
+
+    http.expectOne({ method: 'DELETE', url: '/api/tickets/100' }).flush(null);
+  });
+
   it('sends the complete swimlane order when reordering', () => {
     api.reorderSwimlanes(1, [30, 10, 20]).subscribe();
 

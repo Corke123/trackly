@@ -14,6 +14,13 @@ test.describe('what a plain user can do', () => {
     await expect(page.getByTestId('swimlane-handle-10')).toHaveCount(0);
   });
 
+  test('is not offered the delete action on a ticket', async ({ page }) => {
+    await page.getByTestId('ticket-menu-100').click();
+
+    await expect(page.getByTestId('assign-ticket-100')).toBeVisible();
+    await expect(page.getByTestId('delete-ticket-100')).toHaveCount(0);
+  });
+
   test('adds a ticket', async ({ page, userBoard }) => {
     await page.getByTestId('add-ticket-10').click();
     await page.getByTestId('ticket-title').fill('Fix the flaky test');

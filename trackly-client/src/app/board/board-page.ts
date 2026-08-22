@@ -125,6 +125,18 @@ export class BoardPage {
     }
   }
 
+  protected async deleteTicket(ticket: Ticket): Promise<void> {
+    const confirmed = await this.confirm({
+      title: `Delete "${ticket.title}"?`,
+      message: 'This ticket will be removed from the board. This cannot be undone.',
+      confirmLabel: 'Delete ticket',
+      destructive: true,
+    });
+    if (confirmed) {
+      await this.store.deleteTicket(ticket.id);
+    }
+  }
+
   protected reload(): void {
     void this.store.load();
   }

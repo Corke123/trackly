@@ -55,6 +55,8 @@ export class SwimlaneColumn {
 
   readonly assignTicket = output<Ticket>();
 
+  readonly deleteTicket = output<Ticket>();
+
   readonly moveTicket = output<TicketDrop>();
 
   protected readonly listId = computed(() => swimlaneListId(this.swimlane().id));
