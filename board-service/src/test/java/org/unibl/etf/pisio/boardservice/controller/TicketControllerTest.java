@@ -6,6 +6,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.server.ResponseStatusException;
 import org.unibl.etf.pisio.boardservice.controller.dto.BoardView.TicketView;
@@ -18,6 +20,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -126,6 +129,15 @@ class TicketControllerTest {
                 .hasMessageContaining("assigneeId must not be blank");
 
         verifyNoInteractions(boardService);
+    }
+
+    @Test
+    @DisplayName("Given a ticket id, when deleteTicket is called, then the service is asked to delete it and no content is returned")
+    void deleteTicket() {
+        ResponseEntity<Void> result = ticketController.deleteTicket(100L, jwtForDemoUser());
+
+        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        verify(boardService).deleteTicket(100L, "demo");
     }
 
     private static Jwt jwtForDemoUser() {

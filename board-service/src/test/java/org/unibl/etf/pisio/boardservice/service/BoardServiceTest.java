@@ -12,6 +12,7 @@ import org.unibl.etf.pisio.boardservice.domain.Swimlane;
 import org.unibl.etf.pisio.boardservice.domain.Ticket;
 import org.unibl.etf.pisio.boardservice.domain.event.TicketAssigned;
 import org.unibl.etf.pisio.boardservice.domain.event.TicketCreated;
+import org.unibl.etf.pisio.boardservice.domain.event.TicketDeleted;
 import org.unibl.etf.pisio.boardservice.domain.event.TicketMoved;
 import org.unibl.etf.pisio.boardservice.exception.BoardNotFoundException;
 import org.unibl.etf.pisio.boardservice.exception.IncompleteSwimlaneOrderException;
@@ -441,6 +442,52 @@ class BoardServiceTest {
         assertThrows(TicketNotFoundException.class, () -> boardService.assignTicket(100L, "user-2", "actor-1"));
 
         verify(ticketRepository, never()).save(any());
+        verifyNoInteractions(publisher);
+    }
+
+    @Test
+    @DisplayName("Given an existing ticket, when deleteTicket is called, then the ticket is removed and a TicketDeleted event is published")
+    void deleteTicket() {
+        Instant fixedNow = Instant.parse("2026-07-25T10:00:00Z");
+        Board board = new Board(1L, "Board", List.of(new Swimlane(10L, "To Do")));
+        Ticket ticket = new Ticket(100L, 1L, 10L, "Doomed", "Desc", "demo", 0, null);
+        when(ticketRepository.findById(100L)).thenReturn(Optional.of(ticket));
+        when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
+
+        try (MockedStatic<Instant> instant = mockStatic(Instant.class, CALLS_REAL_METHODS)) {
+            instant.when(Instant::now).thenReturn(fixedNow);
+            boardService.deleteTicket(100L, "admin");
+        }
+
+        verify(ticketRepository).delete(ticket);
+        verify(publisher).publish(new TicketDeleted(100L, 1L, 10L, "Doomed", "To Do", "demo", "admin", fixedNow));
+    }
+
+    @Test
+    @DisplayName("Given a ticket deleted from the middle of a swimlane, when deleteTicket is called, then the tickets behind it shift up to keep a dense order")
+    void deleteTicketRenumbersRemainingTickets() {
+        Board board = new Board(1L, "Board", List.of(new Swimlane(10L, "To Do")));
+        Ticket first = new Ticket(100L, 1L, 10L, "First", null, null, 0, null);
+        Ticket doomed = new Ticket(101L, 1L, 10L, "Doomed", null, null, 1, null);
+        Ticket third = new Ticket(102L, 1L, 10L, "Third", null, null, 2, null);
+        when(ticketRepository.findById(101L)).thenReturn(Optional.of(doomed));
+        when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
+        when(ticketRepository.findBySwimlaneIdOrderByPositionAsc(10L)).thenReturn(List.of(first, doomed, third));
+
+        boardService.deleteTicket(101L, "admin");
+
+        verify(ticketRepository).delete(doomed);
+        verify(ticketRepository).saveAll(List.of(third.atPosition(1)));
+    }
+
+    @Test
+    @DisplayName("Given a missing ticket, when deleteTicket is called, then TicketNotFoundException is thrown and nothing is deleted or published")
+    void deleteTicketMissingTicket() {
+        when(ticketRepository.findById(404L)).thenReturn(Optional.empty());
+
+        assertThrows(TicketNotFoundException.class, () -> boardService.deleteTicket(404L, "admin"));
+
+        verify(ticketRepository, never()).delete(any());
         verifyNoInteractions(publisher);
     }
 
