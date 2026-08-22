@@ -12,6 +12,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.unibl.etf.pisio.notificationservice.domain.Activity;
 import org.unibl.etf.pisio.notificationservice.domain.event.TicketAssigned;
 import org.unibl.etf.pisio.notificationservice.domain.event.TicketCreated;
+import org.unibl.etf.pisio.notificationservice.domain.event.TicketDeleted;
 import org.unibl.etf.pisio.notificationservice.domain.event.TicketMoved;
 import org.unibl.etf.pisio.notificationservice.repository.ActivityRepository;
 import tools.jackson.core.exc.JacksonIOException;
@@ -209,6 +210,37 @@ class ActivityIngestServiceTest {
         verify(activities, never()).existsByEventId(any());
         verify(activities).save(new Activity(null, null, 1L, TicketCreated.TYPE,
                 "Ticket #100 created: Title", "actor-1", null, null, OCCURRED_AT, RECORDED_AT));
+    }
+
+    @Test
+    @DisplayName("Given a TicketDeleted event for somebody else's ticket, when ingest is called, then the activity is addressed to the former assignee")
+    void ingestTicketDeleted() {
+        String payload = "{\"ticketId\":100}";
+        TicketDeleted event = new TicketDeleted(100L, 1L, 2L, "Fix login", "To Do", "user-2", "actor-1", OCCURRED_AT);
+        when(activities.existsByEventId("event-4")).thenReturn(false);
+        when(objectMapper.readValue(payload, TicketDeleted.class)).thenReturn(event);
+        echoSaves();
+
+        ingestAt(() -> activityIngestService.ingest("event-4", TicketDeleted.TYPE, payload));
+
+        verify(activities).save(new Activity(null, "event-4", 1L, TicketDeleted.TYPE,
+                "Ticket \"Fix login\" deleted from To Do", "actor-1",
+                "user-2", "actor-1 deleted your ticket \"Fix login\"", OCCURRED_AT, RECORDED_AT));
+    }
+
+    @Test
+    @DisplayName("Given a TicketDeleted event for an unassigned ticket, when ingest is called, then the activity is addressed to nobody")
+    void ingestTicketDeletedWithoutAssignee() {
+        String payload = "{\"ticketId\":100}";
+        TicketDeleted event = new TicketDeleted(100L, 1L, 2L, "Fix login", "To Do", null, "actor-1", OCCURRED_AT);
+        when(activities.existsByEventId("event-4")).thenReturn(false);
+        when(objectMapper.readValue(payload, TicketDeleted.class)).thenReturn(event);
+        echoSaves();
+
+        ingestAt(() -> activityIngestService.ingest("event-4", TicketDeleted.TYPE, payload));
+
+        verify(activities).save(recipientOf());
+        verifyNoInteractions(events);
     }
 
     @Test

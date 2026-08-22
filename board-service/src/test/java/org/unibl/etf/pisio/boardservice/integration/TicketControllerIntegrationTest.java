@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
@@ -27,6 +28,10 @@ class TicketControllerIntegrationTest {
 
     @Autowired
     private RestTestClient restTestClient;
+
+    @Autowired
+    @Qualifier("userRestTestClient")
+    private RestTestClient userRestTestClient;
 
     @Autowired
     private TicketRepository ticketRepository;
@@ -147,6 +152,48 @@ class TicketControllerIntegrationTest {
         assertThat(ticketRepository.findBySwimlaneIdOrderByPositionAsc(toSwimlaneId))
                 .extracting(Ticket::id, Ticket::position)
                 .containsExactly(tuple(second, 0), tuple(alreadyThere, 1));
+    }
+
+    @Test
+    @DisplayName("Given an admin and a ticket in the middle of a swimlane, when DELETE /tickets/{ticketId} is called, then the ticket is gone, the lane stays densely numbered and a TicketDeleted event is published")
+    void deleteTicketEndpoint() throws Exception {
+        Long boardId = createBoard(restTestClient, "Board");
+        Long swimlaneId = addSwimlane(restTestClient, boardId, "To Do");
+        Long first = createTicket(restTestClient, boardId, swimlaneId, "First", null);
+        Long doomed = createTicket(restTestClient, boardId, swimlaneId, "Doomed", null);
+        Long third = createTicket(restTestClient, boardId, swimlaneId, "Third", null);
+
+        restTestClient.delete()
+                .uri("/tickets/{ticketId}", doomed)
+                .exchange()
+                .expectStatus().isNoContent();
+
+        assertThat(ticketRepository.findById(doomed)).isEmpty();
+        assertThat(ticketRepository.findBySwimlaneIdOrderByPositionAsc(swimlaneId))
+                .extracting(Ticket::id, Ticket::position)
+                .containsExactly(tuple(first, 0), tuple(third, 1));
+
+        ServiceBusReceivedMessage event = awaitEvent(eventReceiver, "TicketDeleted", doomed);
+        JsonNode payload = objectMapper.readTree(event.getBody().toString());
+        assertThat(payload.get("ticketId").asLong()).isEqualTo(doomed);
+        assertThat(payload.get("title").asText()).isEqualTo("Doomed");
+        assertThat(payload.get("swimlaneTitle").asText()).isEqualTo("To Do");
+        assertThat(payload.get("actorId").asText()).isEqualTo("admin");
+    }
+
+    @Test
+    @DisplayName("Given a plain user, when DELETE /tickets/{ticketId} is called, then it is forbidden and the ticket survives")
+    void plainUsersMayNotDeleteTickets() {
+        Long boardId = createBoard(restTestClient, "Board");
+        Long swimlaneId = addSwimlane(restTestClient, boardId, "To Do");
+        Long ticketId = createTicket(restTestClient, boardId, swimlaneId, "Not yours to delete", null);
+
+        userRestTestClient.delete()
+                .uri("/tickets/{ticketId}", ticketId)
+                .exchange()
+                .expectStatus().isForbidden();
+
+        assertThat(ticketRepository.findById(ticketId)).isPresent();
     }
 
     @Test
