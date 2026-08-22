@@ -20,7 +20,6 @@ import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 import java.time.Instant;
-import java.util.Objects;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -284,7 +283,7 @@ class ActivityIngestServiceTest {
     }
 
     private static Activity recipientOf() {
-        return argThat(activity -> activity != null && Objects.equals(activity.recipientId(), null) && activity.recipientMessage() == null);
+        return argThat(activity -> activity != null && activity.recipientId() == null && activity.recipientMessage() == null);
     }
 
     private static void ingestAt(Runnable ingest) {
