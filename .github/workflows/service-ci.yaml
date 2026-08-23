@@ -226,7 +226,7 @@ jobs:
 
   package:
     name: Package
-    needs: commit-stage
+    needs: integration-stage
     if: inputs.build-image
     runs-on: ubuntu-latest
     timeout-minutes: 20
