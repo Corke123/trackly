@@ -16,14 +16,40 @@ the wrong way round.
 ## What runs now
 
 [`verify-release.sh`](../../.github/scripts/verify-release.sh) runs at the end of every deploy, in both
-environments, against the gateway's public FQDN, and asserts three things: `/actuator/health` answers,
-`/actuator/info` reports `build.revision` equal to the commit being released, and `/` serves the
-single-page app. The third check exists because the SPA ships as a layer of the gateway image (ADR 0006), so
-a gateway that answers its actuator but not its document root is a broken release the actuator alone calls
-healthy.
+environments, against the gateway's public FQDN, and always asserts two things: `/actuator/health` answers,
+and `/` serves the single-page app. The second check exists because the SPA ships as a layer of the gateway
+image (ADR 0006), so a gateway that answers its actuator but not its document root is a broken release the
+actuator alone calls healthy.
+
+When the gateway is one of the services being released, the script additionally asserts that
+`/actuator/info` reports `build.revision` equal to the commit being deployed. That is the check which proves
+the traffic shift itself took effect, and it is the reason this ADR exists.
 
 If that verification fails, `rollback.sh` runs automatically — the same script the manual `rollback.yaml`
-workflow calls — re-pointing traffic to the previous revision, which blue-green left warm.
+workflow calls — re-pointing traffic to the previous revision, which blue-green left warm, for the services
+this deploy actually touched.
+
+## Both halves are bound to what the release contains
+
+The first version of this check asserted the gateway's revision unconditionally, and rolled back `all` four
+apps on failure. Both were written when every push to `main` rebuilt and redeployed everything, and both
+break the moment the change detection of ADR 0009 selects a subset.
+
+A push that touches only `board-service` deploys only `board-service`. The gateway keeps serving whatever
+commit last built it, so an unconditional revision assertion can never pass — and cannot be satisfied by
+also deploying the gateway, because CI skipped the gateway build and no image exists at that commit. Run
+32768918036 failed exactly this way.
+
+The rollback then made it worse. Scoped to `all`, it moved traffic on three apps this release never touched,
+retiring healthy revisions and walking staging two commits backwards. A rollback undoes *this* release;
+anything it touches beyond that is collateral damage, not recovery. The manual `rollback.yaml` still offers
+`all`, because a human asking for it means it.
+
+The residual gap is that a backend-only release is proven by provisioning state plus the staging acceptance
+suite, and nothing else: internal apps have no per-revision FQDN a runner can reach, so blue-green skips
+their HTTP verification (ADR 0007). Production has no acceptance suite behind it, which makes a
+backend-only production release the least verified path in the pipeline. Closing that needs the gateway to
+report its downstream revisions, and is not attempted here.
 
 ## The condition is the step's outcome, not the job's
 
@@ -63,12 +89,14 @@ shifted, and what it was shifted to does not work. If an earlier step failed, `v
   path rather than approximating it.
 - The check adds roughly 5–15 s to a warm deploy, and up to its 300 s timeout against an app scaled to zero
   (ADR 0016) — the cold start the README already documents as 20–40 s.
-- The script's four outcomes are **verified**, against a local TLS server standing in for the ingress: a
+- The script's outcomes are **verified**, against a local TLS server standing in for the ingress: a
   healthy revision serving the expected commit exits 0 and writes its summary; a revision serving a
   *different* commit, a revision whose actuator answers but whose document root 404s, and a revision that
-  never becomes healthy each exit 1 with the intended message. What is **not** yet exercised is the Azure
-  integration and the rollback branch: the first release after this lands proves the verification on a good
-  deploy, and the rollback is best proven once by deploying a knowingly broken image to staging.
+  never becomes healthy each exit 1 with the intended message. Two more cover the gateway-not-released
+  path: a revision whose commit lags the release now exits 0, while a missing document root still exits 1.
+  The rollback branch no longer needs a contrived proof — run 32768918036 fired it against staging for real,
+  which is also how its scoping bug was found. What remains unexercised is a rollback that recovers a
+  genuinely broken release rather than a wrongly-failed verification.
 
 - Writing that test is what caught the bug that would have made all of this moot. The script's first line
   of argument checking read `: "${FQDN:?FQDN must be set to the gateway's public hostname}"`, and the
