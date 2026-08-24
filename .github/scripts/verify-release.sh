@@ -8,12 +8,12 @@ set -euo pipefail
 # check whose failure triggers the automatic rollback.
 
 : "${FQDN:?FQDN must be set to the public hostname of the gateway}"
-: "${EXPECTED_SHA:?EXPECTED_SHA must be set to the commit being released}"
 : "${ENVIRONMENT:?ENVIRONMENT must be set to staging or production}"
+: "${EXPECTED_SHA:=}"
 : "${TIMEOUT:=300}"
 
 url="https://${FQDN}"
-echo "Verifying ${url} for ${EXPECTED_SHA}"
+echo "Verifying ${url}${EXPECTED_SHA:+ for ${EXPECTED_SHA}}"
 
 deadline=$(( $(date +%s) + TIMEOUT ))
 until curl -fsS --max-time 30 "${url}/actuator/health" >/dev/null 2>&1; do
@@ -25,7 +25,7 @@ until curl -fsS --max-time 30 "${url}/actuator/health" >/dev/null 2>&1; do
 done
 
 serving=$(curl -fsS --max-time 30 "${url}/actuator/info" | jq -r '.build.revision // empty')
-if [ "$serving" != "$EXPECTED_SHA" ]; then
+if [ -n "$EXPECTED_SHA" ] && [ "$serving" != "$EXPECTED_SHA" ]; then
   echo "::error::${ENVIRONMENT} serves build.revision=${serving:-<none>}, expected ${EXPECTED_SHA}"
   exit 1
 fi
@@ -43,8 +43,14 @@ fi
   echo "| | |"
   echo "|---|---|"
   echo "| URL | ${url} |"
-  echo "| Serving | \`${serving}\` |"
-  echo "| Checks | \`/actuator/health\`, \`/actuator/info\` revision, \`/\` |"
+  echo "| Serving | \`${serving:-<none>}\` |"
+  if [ -n "$EXPECTED_SHA" ]; then
+    echo "| Revision | asserted equal to \`${EXPECTED_SHA}\` |"
+    echo "| Checks | \`/actuator/health\`, \`/actuator/info\` revision, \`/\` |"
+  else
+    echo "| Revision | not asserted — the gateway is not part of this release |"
+    echo "| Checks | \`/actuator/health\`, \`/\` |"
+  fi
   echo
 } >> "$GITHUB_STEP_SUMMARY"
 

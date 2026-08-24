@@ -240,7 +240,7 @@ jobs:
 
   wake-database:
     name: Wake the database
-    if: github.ref == 'refs/heads/main'
+    if: ${{ !cancelled() && needs.ci.result == 'success' && github.ref == 'refs/heads/main' }}
     needs: ci
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -265,7 +265,7 @@ jobs:
 
   deploy-staging:
     name: Deploy staging
-    if: github.ref == 'refs/heads/main' && needs.detect-changes.outputs.services != '[]'
+    if: ${{ !cancelled() && needs.ci.result == 'success' && needs.wake-database.result == 'success' && github.ref == 'refs/heads/main' && needs.detect-changes.outputs.services != '[]' }}
     needs: [ detect-changes, ci, wake-database ]
     uses: ./.github/workflows/deploy.yaml
     with:
@@ -277,6 +277,7 @@ jobs:
 
   acceptance-staging:
     name: Acceptance tests (staging)
+    if: ${{ !cancelled() && needs.deploy-staging.result == 'success' }}
     needs: deploy-staging
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -316,6 +317,7 @@ jobs:
 
   deploy-production:
     name: Deploy production
+    if: ${{ !cancelled() && needs.acceptance-staging.result == 'success' }}
     needs: [ detect-changes, acceptance-staging ]
     uses: ./.github/workflows/deploy.yaml
     with:
