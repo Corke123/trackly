@@ -106,7 +106,7 @@ jobs:
         name: Verify the release through the public ingress
         env:
           FQDN: ${{ steps.gateway-url.outputs.fqdn }}
-          EXPECTED_SHA: ${{ github.sha }}
+          EXPECTED_SHA: ${{ contains(fromJSON(inputs.services), 'gateway-service') && github.sha || '' }}
           ENVIRONMENT: ${{ inputs.environment }}
         run: .github/scripts/verify-release.sh
 
@@ -117,7 +117,7 @@ jobs:
         if: always() && steps.verify.outcome == 'failure'
         env:
           ENVIRONMENT: ${{ inputs.environment }}
-          SERVICE: all
+          SERVICE: ${{ join(fromJSON(inputs.services), ' ') }}
           RG: ${{ vars.RESOURCE_GROUP }}
         run: .github/scripts/rollback.sh
 

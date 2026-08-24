@@ -2,7 +2,7 @@
 set -euo pipefail
 
 : "${ENVIRONMENT:?ENVIRONMENT must be set to staging or production}"
-: "${SERVICE:?SERVICE must be set to all or a single service}"
+: "${SERVICE:?SERVICE must be set to all, or to a space-separated list of services}"
 : "${RG:?RG must be set to the resource group}"
 
 if [[ "$SERVICE" == "all" ]]; then
@@ -20,7 +20,7 @@ fi
 
 failed=0
 for service in $services; do
-  app="${service}-${ENVIRONMENT}"
+  app="${service%-service}-${ENVIRONMENT}"
 
   current=$(az containerapp show -n "$app" -g "$RG" \
     --query "properties.configuration.ingress.traffic | sort_by(@, &weight) | [-1].revisionName" -o tsv)
