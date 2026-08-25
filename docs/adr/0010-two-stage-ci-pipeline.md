@@ -29,10 +29,10 @@ in the same workspace as `jacoco-it.exec` for the merge to produce a real union.
 
 ## Coverage gates
 
-Coverage is a build failure, not a report, so that "self-testing build" means something. Two rules live in each
-service's `pom.xml` (not in the workflow, so a service can choose its own numbers without forking the pipeline). Both
-`board-service` and `notification-service` currently gate at the same numbers, set from `board-service`'s measured
-baselines:
+Coverage is a build failure, not a report, so that "self-testing build" means something. Two rules live in
+`trackly-shared/pom.xml` and every service inherits them (ADR 0024). They stay out of the workflow, so a service can
+still choose its own numbers by overriding the plugin, without forking the pipeline. All four now gate at the same
+numbers by construction, set from `board-service`'s measured baselines:
 
 - unit-only was LINE 93.0 % / BRANCH 93.8 % → gate at **0.85**
 - merged unit ∪ integration was LINE 98.8 % / BRANCH 96.9 % → gate at **0.90**

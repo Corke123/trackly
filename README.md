@@ -87,6 +87,7 @@ trackly/
 ├── identity-service/      # OAuth2 authorization server
 ├── board-service/         # core domain
 ├── notification-service/  # event consumer + activity feed + activity stream
+├── trackly-shared/        # parent POM: the build every service inherits (ADR 0024)
 ├── trackly-client/        # Angular SPA (src/, e2e/ stubbed journeys, e2e-stack/ full-stack ones)
 ├── infra/                 # Terraform (modules + environments/{shared,staging,production})
 ├── docs/adr/              # architecture decision records
@@ -185,6 +186,11 @@ cd trackly-client && npm run e2e:stack
 
 Use `./mvnw` rather than `mvn`: the wrapper pins the Maven version, so a local build, the CI build and the Docker build
 agree.
+
+Each service builds on its own, from its own directory, but inherits its build — compiler settings, the test split and
+the coverage gates — from `trackly-shared/pom.xml`. Maven reads that parent straight off disk via `relativePath`, so
+there is nothing to publish or install first, and a change to the shared build rebuilds all four services
+([ADR 0024](docs/adr/0024-shared-build-in-a-parent-pom.md)).
 
 ## Continuous Integration
 
