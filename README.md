@@ -302,7 +302,7 @@ It is idempotent and each section can be applied on its own — `labels`, `merge
 | Section | Why |
 |---|---|
 | `ruleset` | A pull request with **0 required approvals** and the **`CI required`** check must pass. Reviews happen after integration; the gate is the checks, not a reviewer (Ch 3.1.6). Also linear history, up-to-date branches, no force-push, no deletion |
-| `labels` | `broken-build`, `deployment`, `dependencies`, `ci`, `docker`, `trackly-client` and one per service. `gh issue create --label broken-build` fails outright if the label does not exist, so `notify-broken-mainline` depends on this |
+| `labels` | `broken-build`, `deployment`, `dependencies`, `ci`, `docker`, `trackly-client`, `trackly-shared` and one per service. `gh issue create --label broken-build` fails outright if the label does not exist, so `notify-broken-mainline` depends on this |
 | `merge-settings` | Squash and rebase only — merge commits would be rejected by the linear-history rule after the UI offered them. Auto-merge on, so a green PR lands without a second visit |
 | `workflow-permissions` | `GITHUB_TOKEN` read-only by default; jobs request more where they need it (Ch 5.4) |
 | `dependabot` | Security alerts and automated security fixes. The version updates in `dependabot.yml` are a separate feature and work without these |
