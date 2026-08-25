@@ -2,6 +2,21 @@ version: 2
 
 updates:
   - package-ecosystem: maven
+    directory: /trackly-shared
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Belgrade
+    open-pull-requests-limit: 5
+    labels: [ dependencies, trackly-shared ]
+    groups:
+      spring-boot:
+        patterns: [ "org.springframework.boot:*" ]
+      azure-sdk:
+        patterns: [ "com.azure:*" ]
+
+  - package-ecosystem: maven
     directory: /board-service
     schedule:
       interval: weekly

@@ -97,6 +97,7 @@ do_labels() {
   label ci 5319E7 "Pipeline definition and workflows"
   label docker 1D63ED "Container images and base images"
   label trackly-client C5DEF5 "Angular single-page application"
+  label trackly-shared C5DEF5 "Parent POM holding the build every service inherits"
   for service in board notification identity gateway; do
     label "${service}-service" C5DEF5 "${service}-service"
   done

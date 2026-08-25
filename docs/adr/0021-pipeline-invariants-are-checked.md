@@ -1,21 +1,27 @@
 # 0021 — The pipeline's own invariants are checked by a container action
 
 Adding a service to this monorepo means touching five files that no compiler relates to each other: the
-service's `pom.xml` (its coverage gate, ADR 0010), `ci.yaml`'s path filter and `select-services.sh`'s list
-(change detection, ADR 0009), `deploy.yaml` (the release, ADR 0007) and `dependabot.yml`. Miss one and
-nothing fails — the service simply stops being built, or deployed, or updated, silently and for as long as
-nobody looks. The change-detection design of ADR 0009 makes this worse rather than better: a service with
-no path filter produces a green pipeline that built nothing.
+service's `pom.xml` and the parent it inherits its coverage gate from (ADR 0010, ADR 0024), `ci.yaml`'s
+path filter and `select-services.sh`'s list (change detection, ADR 0009), `deploy.yaml` (the release,
+ADR 0007) and `dependabot.yml`. Miss one and nothing fails — the service simply stops being built, or
+deployed, or updated, silently and for as long as nobody looks. The change-detection design of ADR 0009
+makes this worse rather than better: a service with no path filter produces a green pipeline that built
+nothing.
 
 [`.github/actions/pipeline-conventions`](../../.github/actions/pipeline-conventions) asserts those
 relationships, and the `lint` job in `ci.yaml` runs it on every pull request.
 
 ## What it asserts
 
-- Every directory holding a `pom.xml` also holds a `Dockerfile` and `mvnw`, and its POM declares a JaCoCo
-  `check` whose weakest `<minimum>` is at least 0.85.
+- Every directory holding a `pom.xml` that is not a POM-only parent also holds a `Dockerfile` and `mvnw`,
+  and declares — in its own POM or one it inherits from — a JaCoCo `check` whose weakest `<minimum>` is at
+  least 0.85. The checker follows `relativePath` to read the chain, so the gate a service inherits from
+  `trackly-shared` (ADR 0024) counts as its own.
 - Every such service appears in `ci.yaml`'s path filters, in `select-services.sh`'s list, in
   `deploy.yaml`, and in `dependabot.yml` as both a `maven` and a `docker` ecosystem.
+- Every POM that services inherit from appears in `ci.yaml`'s path filters. Inheritance makes the shared
+  build part of all four builds while leaving it in a directory none of them watch, so without this a
+  weakened gate reaches `main` having rebuilt nothing.
 - A service whose tests mention Testcontainers has the `.ci/testcontainers-images.txt` the integration
   stage pre-pulls; a stale list only loses the optimisation, but a missing one loses it invisibly.
 - Every workflow sets top-level `permissions` (or every job does), and every job that is not a
@@ -24,7 +30,10 @@ relationships, and the `lint` job in `ci.yaml` runs it on every pull request.
   the authority, and the overlap is what proves the checker is looking at the same files the linters are.
 
 It was verified against a deliberately broken copy of the repository — a weakened coverage minimum, a
-deleted Dependabot entry, a removed `timeout-minutes` and an unpinned action — and reported all four.
+deleted Dependabot entry, a removed `timeout-minutes` and an unpinned action — and reported all four. The
+two inheritance-aware assertions were verified the same way once ADR 0024 landed: weakening the
+`<minimum>` in the parent is reported against all four services, and removing the parent's path filter is
+reported against `ci.yaml`.
 
 ## Why a container action
 

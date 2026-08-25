@@ -24,7 +24,9 @@ runs:
         java-version: ${{ inputs.java-version }}
         distribution: ${{ inputs.distribution }}
         cache: maven
-        cache-dependency-path: ${{ inputs.service }}/pom.xml
+        cache-dependency-path: |
+          ${{ inputs.service }}/pom.xml
+          trackly-shared/pom.xml
 
     - name: Cache the Maven wrapper distribution
       uses: actions/cache@v6

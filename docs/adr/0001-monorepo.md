@@ -11,3 +11,6 @@ independent per-service builds and deploys via path-based change detection in CI
 - CI must be monorepo-aware: only changed services build/deploy (see ADR 0009 / the
   change-detection workflow), otherwise fast feedback (Ch 3.1.7) is lost.
 - Services stay independently deployable despite sharing a repo — no shared build.
+> **Amended by [ADR 0024](0024-shared-build-in-a-parent-pom.md).** The services now inherit one parent
+> POM holding the build they had four identical copies of. They stay independently buildable and
+> deployable: the parent declares no modules, so each service still builds alone from its own directory.
