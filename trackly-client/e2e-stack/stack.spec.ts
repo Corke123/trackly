@@ -3,19 +3,21 @@ import { Page, expect, test } from '@playwright/test';
 test.describe.configure({ timeout: 180_000 });
 
 test('an admin signs in and shapes the real board', async ({ page }) => {
+  const runId = Date.now().toString(36);
+  const ticketTitle = `Smoke test ticket ${runId}`;
+  const laneTitle = `Blocked ${runId}`;
+
   await signIn(page, 'admin', 'admin');
 
   await expect(page.getByTestId('rename-board')).toBeVisible();
   await expect(page.getByTestId('add-swimlane')).toBeVisible();
 
   await page.locator('[data-testid^="add-ticket-"]').first().click();
-  await page.getByRole('dialog').getByTestId('ticket-title').fill('Smoke test ticket');
+  await page.getByRole('dialog').getByTestId('ticket-title').fill(ticketTitle);
   await page.getByRole('dialog').getByTestId('ticket-assignee').click();
   await page.getByRole('option', { name: 'demo' }).click();
   await page.getByRole('dialog').getByTestId('ticket-submit').click();
-  await expect(page.getByRole('heading', { name: 'Smoke test ticket' }).first()).toBeVisible({
-    timeout: 20_000,
-  });
+  await expect(ticketCard(page, ticketTitle)).toBeVisible({ timeout: 20_000 });
 
   await settle(page);
   await page.getByTestId('rename-board').click();
@@ -25,22 +27,35 @@ test('an admin signs in and shapes the real board', async ({ page }) => {
 
   await settle(page);
   await page.getByTestId('add-swimlane').click();
-  await dialogField(page, 'swimlane-title-input').fill('Blocked');
+  await dialogField(page, 'swimlane-title-input').fill(laneTitle);
   await confirmDialog(page);
-  await expect(page.getByRole('heading', { name: 'Blocked', exact: true }).first()).toBeVisible({
-    timeout: 20_000,
-  });
+  await expect(swimlane(page, laneTitle)).toBeVisible({ timeout: 20_000 });
 
   // A reload is what separates a persisted change from an optimistic one.
   await page.reload();
   await expect(page.getByTestId('board-name')).toHaveText('Thesis board', { timeout: 60_000 });
-  await expect(page.getByRole('heading', { name: 'Smoke test ticket' }).first()).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Blocked', exact: true }).first()).toBeVisible();
+  await expect(ticketCard(page, ticketTitle)).toBeVisible();
+  await expect(swimlane(page, laneTitle)).toBeVisible();
+
+  await settle(page);
+  await deleteTicket(page, ticketTitle);
+  await expect(ticketCard(page, ticketTitle)).toHaveCount(0, { timeout: 20_000 });
+
+  await settle(page);
+  await deleteSwimlane(page, laneTitle);
+  await expect(swimlane(page, laneTitle)).toHaveCount(0, { timeout: 20_000 });
+
+  await page.reload();
+  await expect(page.getByTestId('board')).toBeVisible({ timeout: 60_000 });
+  await expect(ticketCard(page, ticketTitle)).toHaveCount(0);
+  await expect(swimlane(page, laneTitle)).toHaveCount(0);
 });
 
 test('a plain user gets no admin controls, and the service refuses them anyway', async ({
   page,
 }) => {
+  const ticketTitle = `User ticket ${Date.now().toString(36)}`;
+
   await signIn(page, 'user', 'user');
 
   await expect(page.getByTestId('rename-board')).toHaveCount(0);
@@ -63,11 +78,20 @@ test('a plain user gets no admin controls, and the service refuses them anyway',
 
   // What this role may do still works.
   await page.locator('[data-testid^="add-ticket-"]').first().click();
-  await page.getByRole('dialog').getByTestId('ticket-title').fill('User ticket');
+  await page.getByRole('dialog').getByTestId('ticket-title').fill(ticketTitle);
   await page.getByRole('dialog').getByTestId('ticket-submit').click();
-  await expect(page.getByRole('heading', { name: 'User ticket' }).first()).toBeVisible({
-    timeout: 20_000,
-  });
+  await expect(ticketCard(page, ticketTitle)).toBeVisible({ timeout: 20_000 });
+
+  await page.context().clearCookies();
+  await signIn(page, 'admin', 'admin');
+
+  await settle(page);
+  await deleteTicket(page, ticketTitle);
+  await expect(ticketCard(page, ticketTitle)).toHaveCount(0, { timeout: 20_000 });
+
+  await page.reload();
+  await expect(page.getByTestId('board')).toBeVisible({ timeout: 60_000 });
+  await expect(ticketCard(page, ticketTitle)).toHaveCount(0);
 });
 
 /**
@@ -97,6 +121,30 @@ async function signIn(page: Page, username: string, password: string): Promise<v
   }
 
   await expect(page.getByTestId('board')).toBeVisible({ timeout: 60_000 });
+}
+
+function ticketCard(page: Page, title: string) {
+  return page.getByRole('article', { name: title });
+}
+
+function swimlane(page: Page, title: string) {
+  return page.getByRole('region', { name: `${title} swimlane` });
+}
+
+async function deleteTicket(page: Page, title: string): Promise<void> {
+  await ticketCard(page, title)
+    .getByRole('button', { name: `Actions for ${title}` })
+    .click();
+  await page.getByRole('menuitem', { name: 'Delete ticket' }).click();
+  await page.getByRole('dialog').getByTestId('confirm-accept').last().click();
+}
+
+async function deleteSwimlane(page: Page, title: string): Promise<void> {
+  await swimlane(page, title)
+    .getByRole('button', { name: `Actions for ${title}` })
+    .click();
+  await page.getByRole('menuitem', { name: 'Delete swimlane' }).click();
+  await page.getByRole('dialog').getByTestId('confirm-accept').last().click();
 }
 
 /** Opening a dialog while the previous one is still fading out leaves both in the DOM. */
