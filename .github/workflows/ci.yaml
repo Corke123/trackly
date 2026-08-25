@@ -55,6 +55,7 @@ jobs:
               - '.github/actions/**'
               - '.github/scripts/**'
               - 'docker-compose.yaml'
+              - 'trackly-shared/**'
 
       - id: select
         name: Build the service matrix
