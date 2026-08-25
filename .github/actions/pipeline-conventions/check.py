@@ -22,8 +22,42 @@ def load(path: Path) -> dict:
     return yaml.safe_load(path.read_text()) or {}
 
 
+def is_parent_pom(pom: Path) -> bool:
+    return "<packaging>pom</packaging>" in pom.read_text()
+
+
+def inherited_poms(pom: Path) -> list[Path]:
+    """Every POM in this repository that `pom` inherits from, nearest first."""
+    chain: list[Path] = []
+    seen = {pom.resolve()}
+    text = pom.read_text()
+    while match := re.search(r"<relativePath>([^<]+)</relativePath>", text):
+        parent = (pom.parent / match.group(1).strip()).resolve()
+        if parent.is_dir():
+            parent = parent / "pom.xml"
+        if not parent.is_file() or parent in seen:
+            break
+        seen.add(parent)
+        chain.append(parent)
+        pom, text = parent, parent.read_text()
+    return chain
+
+
 def discover_services(root: Path) -> list[str]:
-    return sorted(p.name for p in root.iterdir() if p.is_dir() and (p / "pom.xml").is_file())
+    return sorted(
+        p.name
+        for p in root.iterdir()
+        if p.is_dir() and (p / "pom.xml").is_file() and not is_parent_pom(p / "pom.xml")
+    )
+
+
+def paths_filters() -> str:
+    ci = load(WORKFLOWS / "ci.yaml")
+    for job in ci.get("jobs", {}).values():
+        for step in job.get("steps", []) or []:
+            if "paths-filter" in str(step.get("uses", "")):
+                return step.get("with", {}).get("filters", "")
+    return ""
 
 
 def check_service_layout(service: str, min_coverage: float) -> None:
@@ -33,7 +67,8 @@ def check_service_layout(service: str, min_coverage: float) -> None:
         if not (directory / required).is_file():
             fail(f"{service}/{required}", f"{service} is a service but has no {required}")
 
-    pom = (directory / "pom.xml").read_text()
+    own = directory / "pom.xml"
+    pom = "\n".join(path.read_text() for path in [own, *inherited_poms(own)])
 
     if "jacoco-maven-plugin" not in pom:
         fail(f"{service}/pom.xml", "no jacoco-maven-plugin: this service's coverage is reported, not gated")
@@ -61,12 +96,7 @@ def check_service_layout(service: str, min_coverage: float) -> None:
 
 
 def check_service_is_wired(service: str) -> None:
-    ci = load(WORKFLOWS / "ci.yaml")
-    filters = ""
-    for job in ci.get("jobs", {}).values():
-        for step in job.get("steps", []) or []:
-            if "paths-filter" in str(step.get("uses", "")):
-                filters = step.get("with", {}).get("filters", "")
+    filters = paths_filters()
     if service not in filters:
         fail(".github/workflows/ci.yaml", f"{service} has no path filter, so a change to it builds nothing")
 
@@ -91,6 +121,20 @@ def check_service_is_wired(service: str) -> None:
             fail(
                 ".github/dependabot.yml",
                 f"{service} has no {ecosystem} entry, so its {ecosystem} dependencies are never updated",
+            )
+
+
+def check_inherited_poms_are_wired(services: list[str]) -> None:
+    """A POM several services inherit is part of all their builds, so a change to it must rebuild all of them."""
+    filters = paths_filters()
+    parents = {parent for service in services for parent in inherited_poms(Path(service) / "pom.xml")}
+    for parent in sorted(parents):
+        directory = os.path.relpath(parent.parent)
+        if directory not in filters:
+            fail(
+                ".github/workflows/ci.yaml",
+                f"services inherit {directory}/pom.xml but it has no path filter, "
+                "so a change to the shared build rebuilds nothing",
             )
 
 
@@ -168,6 +212,7 @@ def main() -> int:
         check_service_layout(service, min_coverage)
         check_service_is_wired(service)
 
+    check_inherited_poms_are_wired(services)
     check_workflow_hygiene()
     check_actions_are_pinned()
     summarise(services)
