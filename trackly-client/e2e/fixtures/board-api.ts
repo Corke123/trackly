@@ -161,8 +161,7 @@ export async function installBoardApi(
   const json = (route: Route, body: unknown, status = 200) =>
     route.fulfill({ status, contentType: 'application/json', json: body as object });
 
-  const forbidden = (route: Route) =>
-    json(route, { status: 403, detail: 'Access Denied' }, 403);
+  const forbidden = (route: Route) => json(route, { status: 403, detail: 'Access Denied' }, 403);
 
   // Logging out is a navigation in the real app; here it just has to land somewhere recognisable.
   await page.route('**/logout', (route) =>

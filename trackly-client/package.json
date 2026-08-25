@@ -10,7 +10,9 @@
     "test:ci": "ng test --runner-config vitest-base.config.ts --coverage --coverage-reporters text-summary --coverage-reporters lcovonly --reporters default --reporters junit --output-file reports/unit.xml",
     "e2e": "playwright test",
     "e2e:ui": "playwright test --ui",
-    "e2e:stack": "playwright test --config playwright.stack.config.ts"
+    "e2e:stack": "playwright test --config playwright.stack.config.ts",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "private": true,
   "packageManager": "npm@12.0.2",

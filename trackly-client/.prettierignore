@@ -1,0 +1,15 @@
+# Build output and caches
+/dist
+/.angular
+/out-tsc
+
+# Test and coverage reports
+/coverage
+/reports
+/test-results
+/playwright-report
+/blob-report
+
+# Dependencies and their lockfile, which npm owns
+/node_modules
+package-lock.json

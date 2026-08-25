@@ -220,9 +220,7 @@ describe('BoardPage', () => {
 
       await openLaneMenu(fixture, 10);
 
-      expect(
-        queryOverlay('swimlane-move-left-10')?.hasAttribute('disabled'),
-      ).toBe(true);
+      expect(queryOverlay('swimlane-move-left-10')?.hasAttribute('disabled')).toBe(true);
     });
 
     it('cannot move the last swimlane further right', async () => {
@@ -230,9 +228,7 @@ describe('BoardPage', () => {
 
       await openLaneMenu(fixture, 30);
 
-      expect(
-        queryOverlay('swimlane-move-right-30')?.hasAttribute('disabled'),
-      ).toBe(true);
+      expect(queryOverlay('swimlane-move-right-30')?.hasAttribute('disabled')).toBe(true);
     });
   });
 
@@ -313,7 +309,9 @@ describe('BoardPage', () => {
       store.hasBoard.set(false);
       await fixture.whenStable();
 
-      expect(query(fixture, 'board-error')?.textContent).toContain('The board could not be loaded.');
+      expect(query(fixture, 'board-error')?.textContent).toContain(
+        'The board could not be loaded.',
+      );
 
       query(fixture, 'board-retry')?.click();
       expect(store.load).toHaveBeenCalled();

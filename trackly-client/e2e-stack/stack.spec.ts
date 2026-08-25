@@ -110,7 +110,10 @@ async function signIn(page: Page, username: string, password: string): Promise<v
   const consentHeading = page.getByText('Consent required');
   await Promise.race([
     consentHeading.waitFor({ timeout: 30_000 }).catch(() => undefined),
-    page.getByTestId('board').waitFor({ timeout: 30_000 }).catch(() => undefined),
+    page
+      .getByTestId('board')
+      .waitFor({ timeout: 30_000 })
+      .catch(() => undefined),
   ]);
 
   if (await consentHeading.count()) {

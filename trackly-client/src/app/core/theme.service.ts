@@ -55,7 +55,9 @@ export class ThemeService {
   }
 
   private readSystemPreference(): boolean {
-    return this.document.defaultView?.matchMedia?.('(prefers-color-scheme: dark)')?.matches ?? false;
+    return (
+      this.document.defaultView?.matchMedia?.('(prefers-color-scheme: dark)')?.matches ?? false
+    );
   }
 
   private readStoredPreference(): ThemePreference {

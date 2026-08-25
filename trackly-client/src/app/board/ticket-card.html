@@ -1,4 +1,8 @@
-<article class="ticket" [attr.data-testid]="'ticket-' + ticket().id" [attr.aria-label]="ticket().title">
+<article
+  class="ticket"
+  [attr.data-testid]="'ticket-' + ticket().id"
+  [attr.aria-label]="ticket().title"
+>
   <div class="ticket__header">
     <h3 class="ticket__title">{{ ticket().title }}</h3>
 

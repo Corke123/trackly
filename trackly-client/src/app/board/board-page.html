@@ -38,9 +38,7 @@
           (moveSwimlaneRight)="moveSwimlaneRight($event)"
         />
       } @empty {
-        <p class="board__empty" data-testid="board-empty">
-          This board has no swimlanes yet.
-        </p>
+        <p class="board__empty" data-testid="board-empty">This board has no swimlanes yet.</p>
       }
 
       @if (isAdmin()) {
