@@ -9,9 +9,7 @@
         <relativePath>../trackly-shared/pom.xml</relativePath>
     </parent>
 
-    <groupId>org.unibl.etf.pisio</groupId>
     <artifactId>gateway-service</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
     <name>gateway-service</name>
     <description>gateway-service</description>
 
