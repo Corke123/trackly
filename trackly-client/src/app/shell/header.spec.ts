@@ -68,7 +68,9 @@ describe('Header', () => {
     resolvedTheme.set('dark');
     await fixture.whenStable();
 
-    expect(query(fixture, 'theme-toggle')?.getAttribute('aria-label')).toBe('Switch to light theme');
+    expect(query(fixture, 'theme-toggle')?.getAttribute('aria-label')).toBe(
+      'Switch to light theme',
+    );
   });
 
   it('switches the theme when the toggle is used', () => {

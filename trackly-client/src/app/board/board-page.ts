@@ -11,22 +11,12 @@ import { BoardStore } from '../core/board.store';
 import { ConfirmDialog, ConfirmData } from './dialogs/confirm.dialog';
 import { AssignTicketDialog, AssignTicketData } from './dialogs/assign-ticket.dialog';
 import { TextPromptData, TextPromptDialog } from './dialogs/text-prompt.dialog';
-import {
-  TicketFormData,
-  TicketFormDialog,
-  TicketFormResult,
-} from './dialogs/ticket-form.dialog';
+import { TicketFormData, TicketFormDialog, TicketFormResult } from './dialogs/ticket-form.dialog';
 import { SwimlaneColumn, TicketDrop } from './swimlane-column';
 
 @Component({
   selector: 'app-board-page',
-  imports: [
-    DragDropModule,
-    MatButtonModule,
-    MatIconModule,
-    MatProgressBarModule,
-    SwimlaneColumn,
-  ],
+  imports: [DragDropModule, MatButtonModule, MatIconModule, MatProgressBarModule, SwimlaneColumn],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './board-page.html',
   styleUrl: './board-page.css',

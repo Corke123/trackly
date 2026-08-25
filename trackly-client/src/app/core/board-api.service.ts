@@ -34,7 +34,9 @@ export class BoardApiService {
   }
 
   reorderSwimlanes(boardId: number, swimlaneIds: readonly number[]): Observable<Board> {
-    return this.http.put<Board>(`${this.baseUrl}/boards/${boardId}/swimlanes/order`, { swimlaneIds });
+    return this.http.put<Board>(`${this.baseUrl}/boards/${boardId}/swimlanes/order`, {
+      swimlaneIds,
+    });
   }
 
   createTicket(

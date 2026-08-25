@@ -55,11 +55,7 @@ describe('BoardStore', () => {
       await store.load();
 
       expect(store.boardName()).toBe('Trackly Board');
-      expect(store.swimlanes().map((lane) => lane.title)).toEqual([
-        'To Do',
-        'In Progress',
-        'Done',
-      ]);
+      expect(store.swimlanes().map((lane) => lane.title)).toEqual(['To Do', 'In Progress', 'Done']);
       expect(store.users()).toHaveLength(3);
       expect(store.loading()).toBe(false);
     });
@@ -224,7 +220,9 @@ describe('BoardStore', () => {
     });
 
     it('puts the board back the way the server has it when a move fails', async () => {
-      api.moveTicket.mockReturnValue(throwError(() => problem(422, 'Swimlane 30 not on the board 1')));
+      api.moveTicket.mockReturnValue(
+        throwError(() => problem(422, 'Swimlane 30 not on the board 1')),
+      );
 
       await store.moveTicket(100, 10, 30, 0);
 
@@ -240,7 +238,9 @@ describe('BoardStore', () => {
     });
 
     it('assigns a ticket', async () => {
-      api.assignTicket.mockReturnValue(of(aTicket({ id: 100, title: 'First', assigneeId: 'demo' })));
+      api.assignTicket.mockReturnValue(
+        of(aTicket({ id: 100, title: 'First', assigneeId: 'demo' })),
+      );
 
       await store.assignTicket(100, 'demo');
 
