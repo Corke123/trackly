@@ -1,5 +1,17 @@
 package org.unibl.etf.pisio.boardservice.config;
 
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,19 +25,6 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.unibl.etf.pisio.boardservice.controller.BoardController;
 import org.unibl.etf.pisio.boardservice.domain.Board;
 import org.unibl.etf.pisio.boardservice.service.BoardService;
-
-import java.util.List;
-
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(controllers = BoardController.class)
 @Import(SecurityConfig.class)
@@ -44,7 +43,12 @@ class SecurityConfigTest {
     }
 
     @Test
-    @DisplayName("Given a valid bearer token with a roles claim, when a board endpoint is called, then the request is authenticated and reaches the controller")
+    @DisplayName(
+            """
+            Given a valid bearer token with a roles claim, \
+            when a board endpoint is called, \
+            then the request is authenticated and reaches the controller\
+            """)
     void requestWithBearerTokenIsAuthenticated() throws Exception {
         when(boardService.getBoard(1L)).thenReturn(new Board(1L, "Board", List.of()));
         when(boardService.getBoardTickets(1L)).thenReturn(List.of());
@@ -54,7 +58,12 @@ class SecurityConfigTest {
     }
 
     @Test
-    @DisplayName("Given a token without the admin role, when an admin-only board endpoint is called, then a 403 is returned and the service is never reached")
+    @DisplayName(
+            """
+            Given a token without the admin role, \
+            when an admin-only board endpoint is called, \
+            then a 403 is returned and the service is never reached\
+            """)
     void adminOnlyEndpointRejectsPlainUser() throws Exception {
         mockMvc.perform(patch("/boards/1")
                         .with(user())
@@ -84,7 +93,12 @@ class SecurityConfigTest {
     }
 
     @Test
-    @DisplayName("Given a token with the admin role, when an admin-only board endpoint is called, then the request reaches the controller")
+    @DisplayName(
+            """
+            Given a token with the admin role, \
+            when an admin-only board endpoint is called, \
+            then the request reaches the controller\
+            """)
     void adminOnlyEndpointAcceptsAdmin() throws Exception {
         when(boardService.renameBoard(1L, "Renamed")).thenReturn(new Board(1L, "Renamed", List.of()));
         when(boardService.getBoardTickets(1L)).thenReturn(List.of());

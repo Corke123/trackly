@@ -1,6 +1,12 @@
 package org.unibl.etf.pisio.boardservice.integration;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
+
 import com.azure.messaging.servicebus.ServiceBusReceivedMessage;
+import java.time.Duration;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 import org.springframework.test.web.servlet.client.RestTestClient;
 import org.unibl.etf.pisio.boardservice.controller.dto.BoardView;
 import org.unibl.etf.pisio.boardservice.controller.dto.BoardView.SwimlaneView;
@@ -9,13 +15,6 @@ import org.unibl.etf.pisio.boardservice.controller.dto.Requests.CreateBoard;
 import org.unibl.etf.pisio.boardservice.controller.dto.Requests.CreateSwimlane;
 import org.unibl.etf.pisio.boardservice.controller.dto.Requests.CreateTicket;
 import org.unibl.etf.pisio.boardservice.integration.ServiceBusTestSupportConfig.BoardEventTestReceiver;
-
-import java.time.Duration;
-import java.util.Optional;
-import java.util.concurrent.atomic.AtomicReference;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.awaitility.Awaitility.await;
 
 final class BoardIntegrationTestSupport {
 

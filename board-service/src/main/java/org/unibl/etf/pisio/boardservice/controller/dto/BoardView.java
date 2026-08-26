@@ -1,13 +1,12 @@
 package org.unibl.etf.pisio.boardservice.controller.dto;
 
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import org.jspecify.annotations.NonNull;
 import org.unibl.etf.pisio.boardservice.domain.Board;
 import org.unibl.etf.pisio.boardservice.domain.Swimlane;
 import org.unibl.etf.pisio.boardservice.domain.Ticket;
-
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 public record BoardView(Long id, String name, List<SwimlaneView> swimlanes) {
 
@@ -21,7 +20,8 @@ public record BoardView(Long id, String name, List<SwimlaneView> swimlanes) {
     public record TicketView(Long id, String title, String description, String assigneeId, int position) {
 
         public static TicketView of(Ticket ticket) {
-            return new TicketView(ticket.id(), ticket.title(), ticket.description(), ticket.assigneeId(), ticket.position());
+            return new TicketView(ticket.id(), ticket.title(), ticket.description(), ticket.assigneeId(),
+                    ticket.position());
         }
     }
 

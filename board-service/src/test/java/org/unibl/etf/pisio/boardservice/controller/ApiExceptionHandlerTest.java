@@ -1,5 +1,8 @@
 package org.unibl.etf.pisio.boardservice.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
@@ -10,16 +13,17 @@ import org.unibl.etf.pisio.boardservice.exception.SwimlaneNotEmptyException;
 import org.unibl.etf.pisio.boardservice.exception.SwimlaneNotOnBoardException;
 import org.unibl.etf.pisio.boardservice.exception.TicketNotFoundException;
 
-import java.util.List;
-
-import static org.assertj.core.api.Assertions.assertThat;
-
 class ApiExceptionHandlerTest {
 
     private final ApiExceptionHandler handler = new ApiExceptionHandler();
 
     @Test
-    @DisplayName("Given a BoardNotFoundException, when handleBoardNotFound is called, then a 404 problem detail is returned")
+    @DisplayName(
+            """
+            Given a BoardNotFoundException, \
+            when handleBoardNotFound is called, \
+            then a 404 problem detail is returned\
+            """)
     void handleBoardNotFound() {
         BoardNotFoundException exception = new BoardNotFoundException(1L);
 
@@ -30,7 +34,12 @@ class ApiExceptionHandlerTest {
     }
 
     @Test
-    @DisplayName("Given a TicketNotFoundException, when handleTicketNotFound is called, then a 404 problem detail is returned")
+    @DisplayName(
+            """
+            Given a TicketNotFoundException, \
+            when handleTicketNotFound is called, \
+            then a 404 problem detail is returned\
+            """)
     void handleTicketNotFound() {
         TicketNotFoundException exception = new TicketNotFoundException(100L);
 
@@ -41,7 +50,12 @@ class ApiExceptionHandlerTest {
     }
 
     @Test
-    @DisplayName("Given a SwimlaneNotOnBoardException, when handleSwimlaneNotOnBoard is called, then a 422 problem detail is returned")
+    @DisplayName(
+            """
+            Given a SwimlaneNotOnBoardException, \
+            when handleSwimlaneNotOnBoard is called, \
+            then a 422 problem detail is returned\
+            """)
     void handleSwimlaneNotOnBoard() {
         SwimlaneNotOnBoardException exception = new SwimlaneNotOnBoardException(1L, 20L);
 
@@ -52,7 +66,12 @@ class ApiExceptionHandlerTest {
     }
 
     @Test
-    @DisplayName("Given a SwimlaneNotEmptyException, when handleSwimlaneNotEmpty is called, then a 409 problem detail is returned")
+    @DisplayName(
+            """
+            Given a SwimlaneNotEmptyException, \
+            when handleSwimlaneNotEmpty is called, \
+            then a 409 problem detail is returned\
+            """)
     void handleSwimlaneNotEmpty() {
         SwimlaneNotEmptyException exception = new SwimlaneNotEmptyException(20L, 3);
 
@@ -63,7 +82,12 @@ class ApiExceptionHandlerTest {
     }
 
     @Test
-    @DisplayName("Given an IncompleteSwimlaneOrderException, when handleIncompleteSwimlaneOrder is called, then a 422 problem detail is returned")
+    @DisplayName(
+            """
+            Given an IncompleteSwimlaneOrderException, \
+            when handleIncompleteSwimlaneOrder is called, \
+            then a 422 problem detail is returned\
+            """)
     void handleIncompleteSwimlaneOrder() {
         IncompleteSwimlaneOrderException exception =
                 new IncompleteSwimlaneOrderException(1L, List.of(10L, 20L), List.of(10L));

@@ -3,12 +3,11 @@ package org.unibl.etf.pisio.boardservice.integration;
 import com.azure.messaging.servicebus.ServiceBusClientBuilder;
 import com.azure.messaging.servicebus.ServiceBusProcessorClient;
 import com.azure.messaging.servicebus.ServiceBusReceivedMessage;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.testcontainers.azure.ServiceBusEmulatorContainer;
-
-import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
 
 @TestConfiguration(proxyBeanMethods = false)
 public class ServiceBusTestSupportConfig {
