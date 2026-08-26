@@ -1,6 +1,9 @@
 package org.unibl.etf.pisio.gatewayservice.integration;
 
-import org.jspecify.annotations.NonNull;
+import java.time.Instant;
+import java.util.Map;
+import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.annotation.Order;
@@ -21,9 +24,7 @@ import org.springframework.security.web.server.context.ServerSecurityContextRepo
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
-import java.time.Instant;
-import java.util.Map;
-
+@NullMarked
 @TestConfiguration
 class PreAuthenticatedSecurity {
 
@@ -57,12 +58,12 @@ class PreAuthenticatedSecurity {
                 .securityContextRepository(new ServerSecurityContextRepository() {
 
                     @Override
-                    public Mono<Void> save(@NonNull ServerWebExchange exchange, SecurityContext context) {
+                    public Mono<Void> save(ServerWebExchange exchange, @Nullable SecurityContext context) {
                         return Mono.empty();
                     }
 
                     @Override
-                    public Mono<SecurityContext> load(@NonNull ServerWebExchange exchange) {
+                    public Mono<SecurityContext> load(ServerWebExchange exchange) {
                         return Mono.just(new SecurityContextImpl(authentication()));
                     }
                 });

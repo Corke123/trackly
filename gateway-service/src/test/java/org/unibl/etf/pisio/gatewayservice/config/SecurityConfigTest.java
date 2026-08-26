@@ -1,5 +1,10 @@
 package org.unibl.etf.pisio.gatewayservice.config;
 
+import static java.util.Objects.requireNonNull;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.csrf;
+import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.mockOidcLogin;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,11 +21,6 @@ import org.springframework.web.server.WebFilter;
 import org.unibl.etf.pisio.gatewayservice.GatewayTestSupport;
 import reactor.test.StepVerifier;
 
-import static java.util.Objects.requireNonNull;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.csrf;
-import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.mockOidcLogin;
-
 @SpringBootTest
 @AutoConfigureWebTestClient
 class SecurityConfigTest extends GatewayTestSupport {
@@ -35,7 +35,12 @@ class SecurityConfigTest extends GatewayTestSupport {
     private WebFilter csrfCookieWebFilter;
 
     @Test
-    @DisplayName("Given no session, when the SPA is requested, then the browser is sent to the authorization server to log in")
+    @DisplayName(
+            """
+            Given no session, \
+            when the SPA is requested, \
+            then the browser is sent to the authorization server to log in\
+            """)
     void unauthenticatedNavigationStartsTheLogin() {
         webTestClient.get().uri("/")
                 .exchange()
@@ -48,7 +53,12 @@ class SecurityConfigTest extends GatewayTestSupport {
      * login page instead of its data; a 401 is something the client can act on.
      */
     @Test
-    @DisplayName("Given no session, when an api path is requested, then it is refused with a 401 rather than redirected")
+    @DisplayName(
+            """
+            Given no session, \
+            when an api path is requested, \
+            then it is refused with a 401 rather than redirected\
+            """)
     void unauthenticatedApiCallIsRefused() {
         webTestClient.get().uri("/api/boards/1")
                 .exchange()
@@ -64,7 +74,12 @@ class SecurityConfigTest extends GatewayTestSupport {
     }
 
     @Test
-    @DisplayName("Given no session, when the readiness probe is requested, then it answers so the platform can see the gateway is up")
+    @DisplayName(
+            """
+            Given no session, \
+            when the readiness probe is requested, \
+            then it answers so the platform can see the gateway is up\
+            """)
     void healthProbeIsPublic() {
         webTestClient.get().uri("/actuator/health/readiness")
                 .exchange()
@@ -72,8 +87,13 @@ class SecurityConfigTest extends GatewayTestSupport {
     }
 
     @Test
-    @DisplayName("Given a logged-in session, when a state-changing request arrives without the CSRF token, then it is rejected")
-    void rejectsAStateChangingRequestWithoutTheCsrfToken() {
+    @DisplayName(
+            """
+            Given a logged-in session, \
+            when a state-changing request arrives without the CSRF token, \
+            then it is rejected\
+            """)
+    void rejectsStateChangingRequestWithoutTheCsrfToken() {
         webTestClient.mutateWith(mockOidcLogin())
                 .post().uri("/api/tickets")
                 .exchange()
@@ -81,8 +101,13 @@ class SecurityConfigTest extends GatewayTestSupport {
     }
 
     @Test
-    @DisplayName("Given the SPA needs to read the CSRF token, when a page is served, then the token is written to a cookie it can read")
-    void publishesTheCsrfTokenAsAReadableCookie() {
+    @DisplayName(
+            """
+            Given the SPA needs to read the CSRF token, \
+            when a page is served, \
+            then the token is written to a cookie it can read\
+            """)
+    void publishesTheCsrfTokenAsReadableCookie() {
         webTestClient.mutateWith(mockOidcLogin())
                 .get().uri("/actuator/info")
                 .exchange()
@@ -91,8 +116,13 @@ class SecurityConfigTest extends GatewayTestSupport {
     }
 
     @Test
-    @DisplayName("Given a request that carries no CSRF token attribute, when the cookie filter runs, then the response is still completed")
-    void csrfCookieFilterToleratesAMissingToken() {
+    @DisplayName(
+            """
+            Given a request that carries no CSRF token attribute, \
+            when the cookie filter runs, \
+            then the response is still completed\
+            """)
+    void csrfCookieFilterToleratesMissingToken() {
         MockServerWebExchange exchange = MockServerWebExchange.from(MockServerHttpRequest.get("/").build());
 
         StepVerifier.create(csrfCookieWebFilter.filter(exchange, e -> e.getResponse().setComplete()))
@@ -102,13 +132,23 @@ class SecurityConfigTest extends GatewayTestSupport {
     }
 
     @Test
-    @DisplayName("Given the token relay filter needs an access token, when the context is started, then a client manager that can refresh one is available")
+    @DisplayName(
+            """
+            Given the token relay filter needs an access token, \
+            when the context is started, \
+            then a client manager that can refresh one is available\
+            """)
     void publishesAnAuthorizedClientManagerThatCanRefresh() {
         assertThat(authorizedClientManager).isInstanceOf(DefaultReactiveOAuth2AuthorizedClientManager.class);
     }
 
     @Test
-    @DisplayName("Given a logged-in session, when the user logs out, then the browser is redirected away rather than left signed in")
+    @DisplayName(
+            """
+            Given a logged-in session,\
+             when the user logs out, \
+            then the browser is redirected away rather than left signed in\
+            """)
     void logoutRedirects() {
         webTestClient.mutateWith(mockOidcLogin()).mutateWith(csrf())
                 .post().uri("/logout")
@@ -116,14 +156,13 @@ class SecurityConfigTest extends GatewayTestSupport {
                 .expectStatus().isFound();
     }
 
-    /**
-     * Echoing the cookie verbatim is the whole of Angular's CSRF handling, and it is not what the
-     * framework accepts by default — the default masks the value it publishes, so the SPA's every
-     * write would come back 403. Exercised without the test mutators for that reason: they would
-     * supply a token the way the framework prefers rather than the way the client actually sends it.
-     */
     @Test
-    @DisplayName("Given the CSRF token from the cookie, when the SPA echoes it back in the header, then the request is accepted")
+    @DisplayName(
+            """
+            Given the CSRF token from the cookie, \
+            when the SPA echoes it back in the header, \
+            then the request is accepted\
+            """)
     void acceptsTheCsrfTokenTheWayTheSpaSendsIt() {
         ResponseCookie csrfCookie = webTestClient.mutateWith(mockOidcLogin())
                 .get().uri("/actuator/info")

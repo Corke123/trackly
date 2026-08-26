@@ -1,5 +1,8 @@
 package org.unibl.etf.pisio.gatewayservice.integration;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
+import java.net.URL;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,10 +15,6 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import org.unibl.etf.pisio.gatewayservice.GatewayTestSupport;
-
-import java.net.URL;
-
-import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * The production mode of ADR 0006: the SPA is part of this image. A deep link has to render the SPA
@@ -32,7 +31,7 @@ class BundledSpaIntegrationTest extends GatewayTestSupport {
     private WebTestClient webTestClient;
 
     @DynamicPropertySource
-    static void serveTheSpaFromAFileLocationAsTheImageDoes(DynamicPropertyRegistry registry) {
+    static void serveTheSpaFromFileLocationAsTheImageDoes(DynamicPropertyRegistry registry) {
         URL bundle = BundledSpaIntegrationTest.class.getResource("/static/");
         if (bundle == null || !"file".equals(bundle.getProtocol())) {
             throw new IllegalStateException(
@@ -42,8 +41,13 @@ class BundledSpaIntegrationTest extends GatewayTestSupport {
     }
 
     @Test
-    @DisplayName("Given a deep link into the SPA, when the browser navigates to it, then the SPA shell is served so the Angular router can take over")
-    void servesTheSpaShellForADeepLink() {
+    @DisplayName(
+            """
+            Given a deep link into the SPA,\
+             when the browser navigates to it, \
+            then the SPA shell is served so the Angular router can take over\
+            """)
+    void servesTheSpaShellForDeepLink() {
         webTestClient.get().uri("/board/1")
                 .accept(MediaType.TEXT_HTML)
                 .exchange()
@@ -53,7 +57,12 @@ class BundledSpaIntegrationTest extends GatewayTestSupport {
     }
 
     @Test
-    @DisplayName("Given the SPA asks for one of its bundles, when it is requested, then the bundle is served rather than the SPA shell")
+    @DisplayName(
+            """
+            Given the SPA asks for one of its bundles, \
+            when it is requested, \
+            then the bundle is served rather than the SPA shell\
+            """)
     void servesAssetsAsThemselves() {
         webTestClient.get().uri("/main-test.js")
                 .header(HttpHeaders.ACCEPT, "*/*")
