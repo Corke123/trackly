@@ -1,15 +1,14 @@
 package org.unibl.etf.pisio.notificationservice.integration;
 
-import org.springframework.data.domain.Limit;
-import org.unibl.etf.pisio.notificationservice.domain.Activity;
-import org.unibl.etf.pisio.notificationservice.repository.ActivityRepository;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 
 import java.time.Duration;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.awaitility.Awaitility.await;
+import org.springframework.data.domain.Limit;
+import org.unibl.etf.pisio.notificationservice.domain.Activity;
+import org.unibl.etf.pisio.notificationservice.repository.ActivityRepository;
 
 final class NotificationIntegrationTestSupport {
 

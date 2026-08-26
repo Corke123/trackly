@@ -1,5 +1,6 @@
 package org.unibl.etf.pisio.notificationservice.service;
 
+import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
@@ -13,8 +14,6 @@ import org.unibl.etf.pisio.notificationservice.domain.event.TicketDeleted;
 import org.unibl.etf.pisio.notificationservice.domain.event.TicketMoved;
 import org.unibl.etf.pisio.notificationservice.repository.ActivityRepository;
 import tools.jackson.databind.ObjectMapper;
-
-import java.util.Objects;
 
 @Service
 public class ActivityIngestService {

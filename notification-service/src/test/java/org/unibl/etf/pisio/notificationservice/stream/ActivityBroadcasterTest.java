@@ -1,5 +1,11 @@
 package org.unibl.etf.pisio.notificationservice.stream;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
+
+import java.time.Instant;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -8,16 +14,9 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.unibl.etf.pisio.notificationservice.domain.Activity;
 import org.unibl.etf.pisio.notificationservice.service.ActivityRecorded;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
-
-import java.time.Instant;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 class ActivityBroadcasterTest {
@@ -33,13 +32,21 @@ class ActivityBroadcasterTest {
     @Test
     @DisplayName("Given a recorded activity, when it is broadcast, then it goes to the recipient it is addressed to")
     void deliversToTheRecipient() {
-        broadcaster.onActivityRecorded(new ActivityRecorded(addressed(8L, "user-1")));
+        Activity activity = new Activity(8L, "event-" + (Long) 8L, 1L, "TicketAssigned",
+                "Ticket \"Fix login\" assigned to user-1", "actor-1", "user-1",
+                "actor-1 assigned \"Fix login\" to you", OCCURRED_AT, OCCURRED_AT);
+        broadcaster.onActivityRecorded(new ActivityRecorded(activity));
 
         verify(registry).send(eq("user-1"), any(SseEmitter.SseEventBuilder.class));
     }
 
     @Test
-    @DisplayName("Given the broadcast listener, when its transaction phase is inspected, then it only runs after commit")
+    @DisplayName(
+            """
+            Given the broadcast listener, \
+            when its transaction phase is inspected, \
+            then it only runs after commit\
+            """)
     void onlyDeliversCommittedActivities() throws NoSuchMethodException {
         TransactionalEventListener listener = ActivityBroadcaster.class
                 .getMethod("onActivityRecorded", ActivityRecorded.class)
@@ -49,8 +56,4 @@ class ActivityBroadcasterTest {
         assertThat(listener.phase()).isEqualTo(TransactionPhase.AFTER_COMMIT);
     }
 
-    private static Activity addressed(Long id, String recipientId) {
-        return new Activity(id, "event-" + id, 1L, "TicketAssigned", "Ticket \"Fix login\" assigned to " + recipientId,
-                "actor-1", recipientId, "actor-1 assigned \"Fix login\" to you", OCCURRED_AT, OCCURRED_AT);
-    }
 }
