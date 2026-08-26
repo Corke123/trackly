@@ -17,7 +17,8 @@ public class JwkRotationScheduler {
         this.rotatingJwkSource = rotatingJwkSource;
     }
 
-    @Scheduled(fixedDelayString = "${trackly.jwt.signing.refresh-interval:PT10M}", initialDelayString = "${trackly.jwt.signing.refresh-interval:PT10M}")
+    @Scheduled(fixedDelayString = "${trackly.jwt.signing.refresh-interval:PT10M}",
+            initialDelayString = "${trackly.jwt.signing.refresh-interval:PT10M}")
     void refresh() {
         this.rotatingJwkSource.refresh();
     }

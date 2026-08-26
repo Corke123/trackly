@@ -4,9 +4,6 @@ import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.jwk.KeyUse;
 import com.nimbusds.jose.jwk.RSAKey;
-import org.springframework.boot.ssl.pem.PemContent;
-import org.springframework.core.io.Resource;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
@@ -18,6 +15,8 @@ import java.security.interfaces.RSAPublicKey;
 import java.security.spec.RSAPublicKeySpec;
 import java.util.ArrayList;
 import java.util.List;
+import org.springframework.boot.ssl.pem.PemContent;
+import org.springframework.core.io.Resource;
 
 public class PemSigningKeys implements SigningKeys {
 
@@ -26,7 +25,8 @@ public class PemSigningKeys implements SigningKeys {
     public PemSigningKeys(List<Resource> locations) {
         if (locations.isEmpty()) {
             throw new IllegalStateException(
-                    "trackly.jwt.signing.pem.locations must list at least one PEM key when trackly.jwt.signing.source=pem");
+                    "trackly.jwt.signing.pem.locations must list at least one PEM key "
+                            + "when trackly.jwt.signing.source=pem");
         }
         this.locations = locations;
     }

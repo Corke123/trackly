@@ -1,5 +1,13 @@
 package org.unibl.etf.pisio.identityservice.integration;
 
+import static java.util.Objects.requireNonNull;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nimbusds.jose.jwk.JWK;
@@ -7,6 +15,16 @@ import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import jakarta.servlet.http.Cookie;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.util.Base64;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -25,25 +43,6 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.web.util.UriComponentsBuilder;
 import org.unibl.etf.pisio.identityservice.jwk.PemSigningKeys;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
-import java.util.Base64;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
-import static java.util.Objects.requireNonNull;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
 @AutoConfigureMockMvc
 @Import(TestcontainersConfig.class)
@@ -60,7 +59,6 @@ class AuthorizationCodeFlowIntegrationTest {
 
     private static final TypeReference<List<Map<String, Object>>> JSON_OBJECTS = new TypeReference<>() {
     };
-
 
     @DynamicPropertySource
     static void registeredClient(DynamicPropertyRegistry registry) {
@@ -207,14 +205,16 @@ class AuthorizationCodeFlowIntegrationTest {
     }
 
     private void assertAuthorizationAndConsentWerePersisted() {
-        Integer authorizationCount = this.jdbcTemplate.queryForObject("""
+        Integer authorizationCount = this.jdbcTemplate.queryForObject(
+                """
                 select count(*) from oauth2_authorization a
                 join oauth2_registered_client c on c.id = a.registered_client_id
                 where c.client_id = ? and a.principal_name = ?
                 """, Integer.class, CLIENT_ID, "demo");
         assertThat(authorizationCount).isPositive();
 
-        Integer consentCount = this.jdbcTemplate.queryForObject("""
+        Integer consentCount = this.jdbcTemplate.queryForObject(
+                """
                 select count(*) from oauth2_authorization_consent oc
                 join oauth2_registered_client c on c.id = oc.registered_client_id
                 where c.client_id = ? and oc.principal_name = ?
@@ -229,7 +229,8 @@ class AuthorizationCodeFlowIntegrationTest {
     }
 
     private static String expectedSigningKeyId() {
-        return new PemSigningKeys(List.of(new ClassPathResource("jwt/dev-signing-key.pem"))).load().getFirst().getKeyID();
+        return new PemSigningKeys(List.of(new ClassPathResource("jwt/dev-signing-key.pem")))
+                .load().getFirst().getKeyID();
     }
 
     private static String expectedPreviousKeyId() {

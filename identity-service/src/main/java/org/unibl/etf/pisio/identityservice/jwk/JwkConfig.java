@@ -6,7 +6,6 @@ import com.azure.security.keyvault.certificates.CertificateClientBuilder;
 import com.azure.security.keyvault.secrets.SecretClient;
 import com.azure.security.keyvault.secrets.SecretClientBuilder;
 import com.nimbusds.jose.jwk.JWK;
-
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
