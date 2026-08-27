@@ -1,5 +1,12 @@
 package org.unibl.etf.pisio.boardservice.integration;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
+import static org.unibl.etf.pisio.boardservice.integration.BoardIntegrationTestSupport.addSwimlane;
+import static org.unibl.etf.pisio.boardservice.integration.BoardIntegrationTestSupport.awaitEvent;
+import static org.unibl.etf.pisio.boardservice.integration.BoardIntegrationTestSupport.createBoard;
+import static org.unibl.etf.pisio.boardservice.integration.BoardIntegrationTestSupport.createTicket;
+
 import com.azure.messaging.servicebus.ServiceBusReceivedMessage;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -16,10 +23,6 @@ import org.unibl.etf.pisio.boardservice.controller.dto.Requests.UpdateTicket;
 import org.unibl.etf.pisio.boardservice.domain.Ticket;
 import org.unibl.etf.pisio.boardservice.integration.ServiceBusTestSupportConfig.BoardEventTestReceiver;
 import org.unibl.etf.pisio.boardservice.repository.TicketRepository;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.tuple;
-import static org.unibl.etf.pisio.boardservice.integration.BoardIntegrationTestSupport.*;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import({TestcontainersConfig.class, ServiceBusTestSupportConfig.class})
@@ -65,7 +68,12 @@ class TicketControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("Given swimlaneId and position, when PATCH /tickets/{ticketId} is called, then the ticket is moved, persisted and a TicketMoved event is published")
+    @DisplayName(
+            """
+            Given swimlaneId and position, \
+            when PATCH /tickets/{ticketId} is called, \
+            then the ticket is moved, persisted and a TicketMoved event is published\
+            """)
     void moveTicketEndpoint() throws Exception {
         Long boardId = createBoard(restTestClient, "Board");
         Long fromSwimlaneId = addSwimlane(restTestClient, boardId, "To Do");
@@ -100,7 +108,12 @@ class TicketControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("Given an assigneeId, when PATCH /tickets/{ticketId} is called, then the ticket is assigned, persisted and a TicketAssigned event is published")
+    @DisplayName(
+            """
+            Given an assigneeId, \
+            when PATCH /tickets/{ticketId} is called, \
+            then the ticket is assigned, persisted and a TicketAssigned event is published\
+            """)
     void assignTicketEndpoint() throws Exception {
         Long boardId = createBoard(restTestClient, "Board");
         Long swimlaneId = addSwimlane(restTestClient, boardId, "To Do");
@@ -130,7 +143,12 @@ class TicketControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("Given a ticket dragged out of the middle of a swimlane, when PATCH /tickets/{ticketId} is called, then both swimlanes are left densely numbered from zero")
+    @DisplayName(
+            """
+            Given a ticket dragged out of the middle of a swimlane, \
+            when PATCH /tickets/{ticketId} is called, \
+            then both swimlanes are left densely numbered from zero\
+            """)
     void moveTicketRenumbersBothSwimlanes() {
         Long boardId = createBoard(restTestClient, "Board");
         Long fromSwimlaneId = addSwimlane(restTestClient, boardId, "To Do");
@@ -155,7 +173,12 @@ class TicketControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("Given an admin and a ticket in the middle of a swimlane, when DELETE /tickets/{ticketId} is called, then the ticket is gone, the lane stays densely numbered and a TicketDeleted event is published")
+    @DisplayName(
+            """
+            Given an admin and a ticket in the middle of a swimlane, \
+            when DELETE /tickets/{ticketId} is called, then the ticket is gone, \
+            the lane stays densely numbered and a TicketDeleted event is published\
+            """)
     void deleteTicketEndpoint() throws Exception {
         Long boardId = createBoard(restTestClient, "Board");
         Long swimlaneId = addSwimlane(restTestClient, boardId, "To Do");
@@ -182,7 +205,12 @@ class TicketControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("Given a plain user, when DELETE /tickets/{ticketId} is called, then it is forbidden and the ticket survives")
+    @DisplayName(
+            """
+            Given a plain user, \
+            when DELETE /tickets/{ticketId} is called, \
+            then it is forbidden and the ticket survives\
+            """)
     void plainUsersMayNotDeleteTickets() {
         Long boardId = createBoard(restTestClient, "Board");
         Long swimlaneId = addSwimlane(restTestClient, boardId, "To Do");
@@ -197,7 +225,12 @@ class TicketControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("Given a ticket reordered inside its swimlane, when PATCH /tickets/{ticketId} is called, then the remaining tickets shift to keep a dense order")
+    @DisplayName(
+            """
+            Given a ticket reordered inside its swimlane, \
+            when PATCH /tickets/{ticketId} is called, \
+            then the remaining tickets shift to keep a dense order\
+            """)
     void moveTicketReordersWithinSwimlane() {
         Long boardId = createBoard(restTestClient, "Board");
         Long swimlaneId = addSwimlane(restTestClient, boardId, "To Do");

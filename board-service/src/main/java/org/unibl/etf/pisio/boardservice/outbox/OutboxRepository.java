@@ -1,9 +1,8 @@
 package org.unibl.etf.pisio.boardservice.outbox;
 
+import java.util.List;
 import org.springframework.data.domain.Limit;
 import org.springframework.data.repository.ListCrudRepository;
-
-import java.util.List;
 
 public interface OutboxRepository extends ListCrudRepository<OutboxEntry, Long> {
 

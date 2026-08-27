@@ -1,5 +1,10 @@
 package org.unibl.etf.pisio.gatewayservice.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.mockOidcLogin;
+
+import java.util.List;
+import java.util.function.Consumer;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -10,12 +15,6 @@ import org.springframework.test.web.reactive.server.WebTestClient;
 import org.unibl.etf.pisio.gatewayservice.GatewayTestSupport;
 import org.unibl.etf.pisio.gatewayservice.controller.CurrentUserController.CurrentUser;
 
-import java.util.List;
-import java.util.function.Consumer;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.mockOidcLogin;
-
 @SpringBootTest
 @AutoConfigureWebTestClient
 class CurrentUserControllerTest extends GatewayTestSupport {
@@ -24,7 +23,12 @@ class CurrentUserControllerTest extends GatewayTestSupport {
     private WebTestClient webTestClient;
 
     @Test
-    @DisplayName("Given a signed-in admin, when the current user is requested, then the username and the admin flag are returned")
+    @DisplayName(
+            """
+            Given a signed-in admin, \
+            when the current user is requested, \
+            then the username and the admin flag are returned\
+            """)
     void reportsAnAdmin() {
         CurrentUser response = webTestClient.mutateWith(mockOidcLogin().idToken(idTokenFor("admin", "ROLE_ADMIN")))
                 .get().uri("/api/me")
@@ -38,8 +42,13 @@ class CurrentUserControllerTest extends GatewayTestSupport {
     }
 
     @Test
-    @DisplayName("Given a signed-in user without the admin role, when the current user is requested, then the admin flag is false")
-    void reportsAPlainUser() {
+    @DisplayName(
+            """
+            Given a signed-in user without the admin role, \
+            when the current user is requested, \
+            then the admin flag is false\
+            """)
+    void reportsPlainUser() {
         CurrentUser response = webTestClient.mutateWith(mockOidcLogin().idToken(idTokenFor("demo", "ROLE_USER")))
                 .get().uri("/api/me")
                 .exchange()
@@ -52,10 +61,16 @@ class CurrentUserControllerTest extends GatewayTestSupport {
     }
 
     @Test
-    @DisplayName("Given an id token carrying no roles, when the current user is requested, then no roles are reported rather than failing")
+    @DisplayName(
+            """
+            Given an id token carrying no roles, \
+            when the current user is requested, \
+            then no roles are reported rather than failing\
+            """)
     void toleratesAnIdTokenWithoutRoles() {
         CurrentUser response = webTestClient.mutateWith(mockOidcLogin()
-                        .idToken(builder -> builder.subject("demo").claims(claims -> claims.remove("roles"))))
+                        .idToken(builder -> builder.subject("demo")
+                                .claims(claims -> claims.remove("roles"))))
                 .get().uri("/api/me")
                 .exchange()
                 .expectStatus().isOk()

@@ -1,14 +1,17 @@
 package org.unibl.etf.pisio.boardservice.domain;
 
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.mapping.MappedCollection;
 import org.springframework.data.relational.core.mapping.Table;
 import org.unibl.etf.pisio.boardservice.exception.IncompleteSwimlaneOrderException;
 import org.unibl.etf.pisio.boardservice.exception.SwimlaneNotOnBoardException;
-
-import java.util.*;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 @Table("board")
 public record Board(

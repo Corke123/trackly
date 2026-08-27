@@ -1,15 +1,17 @@
 package org.unibl.etf.pisio.notificationservice.stream;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+
+import java.io.IOException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
-
-import java.io.IOException;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
 
 class ActivityStreamRegistryTest {
 
@@ -21,7 +23,12 @@ class ActivityStreamRegistryTest {
     }
 
     @Test
-    @DisplayName("Given a registered listener, when an event is sent to their recipient id, then it reaches their emitter")
+    @DisplayName(
+            """
+            Given a registered listener, \
+            when an event is sent to their recipient id, \
+            then it reaches their emitter\
+            """)
     void sendsToRegisteredListener() throws IOException {
         SseEmitter emitter = mock(SseEmitter.class);
         registry.register("user-1", emitter);
@@ -34,7 +41,7 @@ class ActivityStreamRegistryTest {
 
     @Test
     @DisplayName("Given a user connected from two tabs, when an event is sent, then both connections receive it")
-    void sendsToEveryConnectionOfARecipient() throws IOException {
+    void sendsToEveryConnectionOfRecipient() throws IOException {
         SseEmitter first = mock(SseEmitter.class);
         SseEmitter second = mock(SseEmitter.class);
         registry.register("user-1", first);
@@ -69,7 +76,12 @@ class ActivityStreamRegistryTest {
     }
 
     @Test
-    @DisplayName("Given a connection that has gone away, when an event is sent, then it is dropped rather than retried forever")
+    @DisplayName(
+            """
+            Given a connection that has gone away, \
+            when an event is sent, \
+            then it is dropped rather than retried forever\
+            """)
     void dropsBrokenConnections() throws IOException {
         SseEmitter broken = mock(SseEmitter.class);
         doThrow(new IOException("broken pipe")).when(broken).send(any(SseEmitter.SseEventBuilder.class));
@@ -94,7 +106,7 @@ class ActivityStreamRegistryTest {
 
     @Test
     @DisplayName("Given a user with two tabs open, when one is closed, then the other keeps receiving")
-    void keepsTheRemainingConnectionsOfARecipient() throws IOException {
+    void keepsTheRemainingConnectionsOfRecipient() throws IOException {
         SseEmitter closed = mock(SseEmitter.class);
         SseEmitter open = mock(SseEmitter.class);
         registry.register("user-1", closed);

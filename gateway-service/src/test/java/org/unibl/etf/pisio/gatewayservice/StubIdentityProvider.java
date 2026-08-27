@@ -10,12 +10,10 @@ public final class StubIdentityProvider {
 
     public static final String END_SESSION_ENDPOINT = "/connect/logout";
 
-    private final DisposableServer server;
-
     private final String issuer;
 
     public StubIdentityProvider() {
-        this.server = HttpServer.create()
+        DisposableServer server = HttpServer.create()
                 .port(0)
                 .route(routes -> routes.get("/.well-known/openid-configuration", (_, response) -> response
                         .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
@@ -29,7 +27,8 @@ public final class StubIdentityProvider {
     }
 
     private String discoveryDocument() {
-        return """
+        return
+                """
                 {
                   "issuer": "%1$s",
                   "authorization_endpoint": "%1$s/oauth2/authorize",

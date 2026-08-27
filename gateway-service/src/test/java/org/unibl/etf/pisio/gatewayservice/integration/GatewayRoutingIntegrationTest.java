@@ -1,5 +1,9 @@
 package org.unibl.etf.pisio.gatewayservice.integration;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
+
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -15,10 +19,6 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import org.unibl.etf.pisio.gatewayservice.GatewayTestSupport;
 import reactor.core.publisher.Mono;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.when;
 
 /**
  * Proves the gateway works as the SPA's single origin: what the browser asks for arrives at the
@@ -66,7 +66,12 @@ class GatewayRoutingIntegrationTest extends GatewayTestSupport {
     }
 
     @Test
-    @DisplayName("Given a board path under the api prefix, when it is requested, then board-service receives it without the prefix and with the relayed token")
+    @DisplayName(
+            """
+            Given a board path under the api prefix, \
+            when it is requested, \
+            then board-service receives it without the prefix and with the relayed token\
+            """)
     void routesBoardPathsToBoardServiceWithoutThePrefix() {
         webTestClient.get().uri("/api/boards/1")
                 .exchange()
@@ -89,7 +94,12 @@ class GatewayRoutingIntegrationTest extends GatewayTestSupport {
     }
 
     @Test
-    @DisplayName("Given an activity path, when it is requested, then it reaches notification-service rather than board-service")
+    @DisplayName(
+            """
+            Given an activity path, \
+            when it is requested, \
+            then it reaches notification-service rather than board-service\
+            """)
     void routesActivityPathsToNotificationService() {
         webTestClient.get().uri("/api/activity")
                 .exchange()
@@ -101,7 +111,12 @@ class GatewayRoutingIntegrationTest extends GatewayTestSupport {
     }
 
     @Test
-    @DisplayName("Given the SPA is proxied to the dev server, when a page is requested, then the dev server serves it on the gateway's origin")
+    @DisplayName(
+            """
+            Given the SPA is proxied to the dev server, \
+            when a page is requested, \
+            then the dev server serves it on the gateway's origin\
+            """)
     void proxiesEverythingElseToTheDevServer() {
         webTestClient.get().uri("/board/1")
                 .exchange()

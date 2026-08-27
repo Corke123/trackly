@@ -1,5 +1,17 @@
 package org.unibl.etf.pisio.notificationservice.stream;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.time.Instant;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,19 +24,6 @@ import org.springframework.test.web.servlet.MvcResult;
 import org.unibl.etf.pisio.notificationservice.config.SecurityConfig;
 import org.unibl.etf.pisio.notificationservice.domain.Activity;
 import org.unibl.etf.pisio.notificationservice.repository.ActivityRepository;
-
-import java.time.Instant;
-import java.util.List;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(controllers = ActivityStreamController.class)
 @Import({SecurityConfig.class, ActivityStreamRegistry.class, ActivityStreamConfig.class})
@@ -56,7 +55,12 @@ class ActivityStreamWebTest {
     }
 
     @Test
-    @DisplayName("Given a Last-Event-ID from a dropped connection, when the stream is reopened, then what was missed arrives with it")
+    @DisplayName(
+            """
+            Given a Last-Event-ID from a dropped connection, \
+            when the stream is reopened, \
+            then what was missed arrives with it\
+            """)
     void replaysWhatWasMissedOnReconnect() throws Exception {
         when(activities.findByRecipientIdAndIdGreaterThanOrderByIdAsc(eq("user-1"), eq(7L), any()))
                 .thenReturn(List.of(addressed(8L)));
@@ -68,13 +72,18 @@ class ActivityStreamWebTest {
                 .andReturn();
 
         String body = result.getResponse().getContentAsString();
-        assertThat(body).contains("id:8");
-        assertThat(body).contains("event:activity");
-        assertThat(body).contains("actor-1 assigned \\\"Fix login\\\" to you");
+        assertThat(body).contains("id:8")
+                .contains("event:activity")
+                .contains("actor-1 assigned \\\"Fix login\\\" to you");
     }
 
     @Test
-    @DisplayName("Given a client that had to open a brand new stream, when it names its resume point in the query string, then what it missed is replayed")
+    @DisplayName(
+            """
+            Given a client that had to open a brand new stream, \
+            when it names its resume point in the query string, \
+            then what it missed is replayed\
+            """)
     void replaysFromTheQueryStringWhenTheHeaderCannotBeSet() throws Exception {
         when(activities.findByRecipientIdAndIdGreaterThanOrderByIdAsc(eq("user-1"), eq(12L), any()))
                 .thenReturn(List.of(addressed(13L)));
@@ -89,7 +98,12 @@ class ActivityStreamWebTest {
     }
 
     @Test
-    @DisplayName("Given both a Last-Event-ID header and a query string, when the stream is opened, then the browser's own header is what counts")
+    @DisplayName(
+            """
+            Given both a Last-Event-ID header and a query string, \
+            when the stream is opened, \
+            then the browser's own header is what counts\
+            """)
     void prefersTheHeaderOverTheQueryString() throws Exception {
         mockMvc.perform(get("/activity/stream")
                         .header("Last-Event-ID", "20")
@@ -101,7 +115,12 @@ class ActivityStreamWebTest {
     }
 
     @Test
-    @DisplayName("Given someone else's Last-Event-ID, when a user reopens the stream, then only their own activities are looked up")
+    @DisplayName(
+            """
+            Given someone else's Last-Event-ID, \
+            when a user reopens the stream, \
+            then only their own activities are looked up\
+            """)
     void replaysOnlyTheSignedInUsersActivities() throws Exception {
         mockMvc.perform(get("/activity/stream")
                         .header("Last-Event-ID", "7")

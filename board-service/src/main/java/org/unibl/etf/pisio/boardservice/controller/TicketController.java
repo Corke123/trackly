@@ -6,7 +6,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 import org.unibl.etf.pisio.boardservice.controller.dto.BoardView.TicketView;
 import org.unibl.etf.pisio.boardservice.controller.dto.Requests.UpdateTicket;
@@ -37,13 +43,15 @@ public class TicketController {
         boolean assign = request.assigneeId() != null;
 
         if (!move && !assign) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Provide swimlaneId+position to move, and/or assigneeId to assign");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Provide swimlaneId+position to move, and/or assigneeId to assign");
         }
 
         Ticket ticket = null;
         if (move) {
             if (request.swimlaneId() == null || request.position() == null) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Both swimlaneId and position are required to move a ticket");
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Both swimlaneId and position are required to move a ticket");
             }
             ticket = boardService.moveTicket(ticketId, request.swimlaneId(), request.position(), actor);
         }
