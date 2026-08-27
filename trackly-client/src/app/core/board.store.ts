@@ -1,5 +1,5 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
-import { firstValueFrom } from 'rxjs';
+import { Observable, firstValueFrom } from 'rxjs';
 import { BoardApiService } from './board-api.service';
 import { Board, Swimlane, Ticket, User } from './board.models';
 import { NotificationService } from './notification.service';
@@ -22,6 +22,9 @@ export class BoardStore {
   private readonly usersState = signal<readonly User[]>([]);
   private readonly loadingState = signal(false);
   private readonly loadErrorState = signal<string | null>(null);
+
+  private writesInFlight = 0;
+  private refreshWanted = false;
 
   readonly board = this.boardState.asReadonly();
   readonly users = this.usersState.asReadonly();
@@ -66,10 +69,18 @@ export class BoardStore {
     }
   }
 
+  async refresh(): Promise<void> {
+    if (this.writesInFlight > 0) {
+      this.refreshWanted = true;
+      return;
+    }
+    await this.fetchBoard(false);
+  }
+
   async renameBoard(name: string): Promise<void> {
     const board = this.requireBoard();
     try {
-      this.boardState.set(await firstValueFrom(this.api.renameBoard(board.id, name)));
+      this.boardState.set(await this.write(this.api.renameBoard(board.id, name)));
       this.notifications.notify(`Board renamed to "${name}".`);
     } catch (error) {
       this.notifications.reportError(describeError(error, 'The board could not be renamed.'));
@@ -79,7 +90,7 @@ export class BoardStore {
   async addSwimlane(title: string): Promise<void> {
     const board = this.requireBoard();
     try {
-      const created = await firstValueFrom(this.api.addSwimlane(board.id, title));
+      const created = await this.write(this.api.addSwimlane(board.id, title));
       this.boardState.update((current) =>
         current === null
           ? current
@@ -94,7 +105,7 @@ export class BoardStore {
   async deleteSwimlane(swimlaneId: number): Promise<void> {
     const board = this.requireBoard();
     try {
-      await firstValueFrom(this.api.deleteSwimlane(board.id, swimlaneId));
+      await this.write(this.api.deleteSwimlane(board.id, swimlaneId));
       this.boardState.update((current) =>
         current === null
           ? current
@@ -115,7 +126,7 @@ export class BoardStore {
 
     this.boardState.set({ ...board, swimlanes: reordered });
     try {
-      await firstValueFrom(
+      await this.write(
         this.api.reorderSwimlanes(
           board.id,
           reordered.map((lane) => lane.id),
@@ -130,7 +141,7 @@ export class BoardStore {
   async createTicket(swimlaneId: number, title: string, description: string | null): Promise<void> {
     const board = this.requireBoard();
     try {
-      const created = await firstValueFrom(
+      const created = await this.write(
         this.api.createTicket(board.id, swimlaneId, title, description),
       );
       this.boardState.update((current) =>
@@ -163,7 +174,7 @@ export class BoardStore {
 
     this.boardState.set(moved);
     try {
-      await firstValueFrom(this.api.moveTicket(ticketId, toSwimlaneId, toIndex));
+      await this.write(this.api.moveTicket(ticketId, toSwimlaneId, toIndex));
     } catch (error) {
       this.notifications.reportError(describeError(error, 'The ticket could not be moved.'));
       await this.reload();
@@ -172,7 +183,7 @@ export class BoardStore {
 
   async assignTicket(ticketId: number, assigneeId: string): Promise<void> {
     try {
-      const assigned = await firstValueFrom(this.api.assignTicket(ticketId, assigneeId));
+      const assigned = await this.write(this.api.assignTicket(ticketId, assigneeId));
       // Only the lane holding the ticket is rebuilt: handing every other lane a new object would
       // make every column and card re-render for a change to one field of one ticket.
       this.boardState.update((current) =>
@@ -200,7 +211,7 @@ export class BoardStore {
 
   async deleteTicket(ticketId: number): Promise<void> {
     try {
-      await firstValueFrom(this.api.deleteTicket(ticketId));
+      await this.write(this.api.deleteTicket(ticketId));
       this.boardState.update((current) =>
         current === null
           ? current
@@ -231,7 +242,24 @@ export class BoardStore {
     }
   }
 
+  private async write<T>(request: Observable<T>): Promise<T> {
+    this.writesInFlight++;
+    try {
+      return await firstValueFrom(request);
+    } finally {
+      this.writesInFlight--;
+      if (this.writesInFlight === 0 && this.refreshWanted) {
+        this.refreshWanted = false;
+        void this.fetchBoard(false);
+      }
+    }
+  }
+
   private async reload(): Promise<void> {
+    await this.fetchBoard(true);
+  }
+
+  private async fetchBoard(reportFailure: boolean): Promise<void> {
     const board = this.boardState();
     if (board === null) {
       return;
@@ -239,7 +267,9 @@ export class BoardStore {
     try {
       this.boardState.set(await firstValueFrom(this.api.getBoard(board.id)));
     } catch (error) {
-      this.loadErrorState.set(describeError(error, 'The board could not be reloaded.'));
+      if (reportFailure) {
+        this.loadErrorState.set(describeError(error, 'The board could not be reloaded.'));
+      }
     }
   }
 

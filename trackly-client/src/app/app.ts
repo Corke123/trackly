@@ -7,6 +7,7 @@ import { TextPromptData, TextPromptDialog } from './board/dialogs/text-prompt.di
 import { ActivityStreamService } from './core/activity-stream.service';
 import { AuthService } from './core/auth.service';
 import { BoardStore } from './core/board.store';
+import { LiveBoardService } from './core/live-board.service';
 import { NotificationService } from './core/notification.service';
 import { Header } from './shell/header';
 
@@ -22,6 +23,7 @@ export class App {
   private readonly auth = inject(AuthService);
   private readonly dialog = inject(MatDialog);
   private readonly activityStream = inject(ActivityStreamService);
+  private readonly liveBoard = inject(LiveBoardService);
   private readonly notifications = inject(NotificationService);
 
   protected readonly boardName = this.store.boardName;
@@ -31,6 +33,7 @@ export class App {
     this.activityStream.notifications
       .pipe(takeUntilDestroyed())
       .subscribe((notification) => this.notifications.announce(notification.message));
+    this.liveBoard.start();
     this.activityStream.connect();
 
     void this.start();

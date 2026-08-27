@@ -1,9 +1,10 @@
 import { DestroyRef, Injectable, InjectionToken, inject } from '@angular/core';
 import { Observable, Subject } from 'rxjs';
 import { API_BASE_URL } from './api.config';
-import { ActivityNotification } from './board.models';
+import { ActivityNotification, BoardChange } from './board.models';
 
 export const ACTIVITY_EVENT = 'activity';
+export const BOARD_CHANGED_EVENT = 'board-changed';
 
 export const RECONNECT_MIN_DELAY = 1_000;
 export const RECONNECT_MAX_DELAY = 30_000;
@@ -25,9 +26,17 @@ export class ActivityStreamService {
   private retryDelay = RECONNECT_MIN_DELAY;
   private lastEventId: string | null = null;
 
+  private opened = 0;
+
   private readonly received = new Subject<ActivityNotification>();
+  private readonly changed = new Subject<BoardChange>();
+  private readonly reopened = new Subject<void>();
 
   readonly notifications: Observable<ActivityNotification> = this.received.asObservable();
+
+  readonly boardChanges: Observable<BoardChange> = this.changed.asObservable();
+
+  readonly reconnects: Observable<void> = this.reopened.asObservable();
 
   constructor() {
     inject(DestroyRef).onDestroy(() => this.disconnect());
@@ -42,7 +51,10 @@ export class ActivityStreamService {
     this.source = source;
 
     source.addEventListener(ACTIVITY_EVENT, (event) => this.onActivity(event as MessageEvent));
-    source.addEventListener('open', () => (this.retryDelay = RECONNECT_MIN_DELAY));
+    source.addEventListener(BOARD_CHANGED_EVENT, (event) =>
+      this.onBoardChanged(event as MessageEvent),
+    );
+    source.addEventListener('open', () => this.onOpen());
     source.addEventListener('error', () => this.onError());
   }
 
@@ -51,6 +63,7 @@ export class ActivityStreamService {
     this.source = null;
     this.clearRetry();
     this.retryDelay = RECONNECT_MIN_DELAY;
+    this.opened = 0;
   }
 
   private streamUrl(): string {
@@ -61,10 +74,24 @@ export class ActivityStreamService {
   }
 
   private onActivity(event: MessageEvent): void {
-    const notification = parseNotification(event.data);
+    const notification = parseJson(event.data, isNotification);
     if (notification) {
       this.lastEventId = event.lastEventId || String(notification.id);
       this.received.next(notification);
+    }
+  }
+
+  private onBoardChanged(event: MessageEvent): void {
+    const change = parseJson(event.data, isBoardChange);
+    if (change) {
+      this.changed.next(change);
+    }
+  }
+
+  private onOpen(): void {
+    this.retryDelay = RECONNECT_MIN_DELAY;
+    if (this.opened++ > 0) {
+      this.reopened.next();
     }
   }
 
@@ -92,14 +119,14 @@ export class ActivityStreamService {
   }
 }
 
-function parseNotification(data: unknown): ActivityNotification | null {
+function parseJson<T>(data: unknown, isExpected: (value: unknown) => value is T): T | null {
   if (typeof data !== 'string') {
     return null;
   }
 
   try {
     const parsed: unknown = JSON.parse(data);
-    return isNotification(parsed) ? parsed : null;
+    return isExpected(parsed) ? parsed : null;
   } catch {
     return null;
   }
@@ -111,5 +138,14 @@ function isNotification(value: unknown): value is ActivityNotification {
     value !== null &&
     typeof (value as ActivityNotification).id === 'number' &&
     typeof (value as ActivityNotification).message === 'string'
+  );
+}
+
+function isBoardChange(value: unknown): value is BoardChange {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as BoardChange).boardId === 'number' &&
+    typeof (value as BoardChange).actorId === 'string'
   );
 }

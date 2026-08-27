@@ -1,9 +1,10 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { of, throwError } from 'rxjs';
+import { Subject, of, throwError } from 'rxjs';
 import { aBoard, aSwimlane, aTicket, someUsers } from '../../testing/board.fixtures';
 import { BoardApiService } from './board-api.service';
+import { Ticket } from './board.models';
 import { BoardStore } from './board.store';
 import { NotificationService } from './notification.service';
 
@@ -296,6 +297,75 @@ describe('BoardStore', () => {
       expect(laneById(store, 10).tickets[0].assigneeId).toBeNull();
       expect(notifications.reportError).toHaveBeenCalledWith('Ticket 100 not found');
     });
+  });
+  describe('refresh', () => {
+    beforeEach(async () => {
+      await store.load();
+      api.getBoard.mockClear();
+    });
+
+    it('picks up what another user changed', async () => {
+      api.getBoard.mockReturnValue(
+        of(aBoard({ swimlanes: [aSwimlane({ id: 10, title: 'To Do', tickets: [] })] })),
+      );
+
+      await store.refresh();
+
+      expect(store.swimlanes().map((lane) => lane.title)).toEqual(['To Do']);
+    });
+
+    it('keeps the board on screen when a refresh cannot be fetched', async () => {
+      api.getBoard.mockReturnValue(throwError(() => problem(503, 'Board service is asleep')));
+
+      await store.refresh();
+
+      expect(store.swimlanes().map((lane) => lane.title)).toEqual(['To Do', 'In Progress', 'Done']);
+      expect(store.loadError()).toBeNull();
+    });
+
+    it('holds a refresh back until the write in flight has landed', async () => {
+      const move = new Subject<Ticket>();
+      api.moveTicket.mockReturnValue(move);
+      const inFlight = store.moveTicket(100, 10, 30, 0);
+
+      await store.refresh();
+      expect(api.getBoard).not.toHaveBeenCalled();
+
+      move.next(aTicket());
+      move.complete();
+      await inFlight;
+
+      expect(api.getBoard).toHaveBeenCalledTimes(1);
+    });
+
+    it('asks for the board once when several writes were waiting on it', async () => {
+      const first = new Subject<Ticket>();
+      const second = new Subject<void>();
+      api.moveTicket.mockReturnValue(first);
+      api.deleteTicket.mockReturnValue(second);
+      const moving = store.moveTicket(100, 10, 30, 0);
+      const deleting = store.deleteTicket(200);
+
+      await store.refresh();
+      await store.refresh();
+
+      first.next(aTicket());
+      first.complete();
+      await moving;
+      expect(api.getBoard).not.toHaveBeenCalled();
+
+      second.next();
+      second.complete();
+      await deleting;
+
+      expect(api.getBoard).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('has nothing to refresh before a board has been opened', async () => {
+    await store.refresh();
+
+    expect(api.getBoard).not.toHaveBeenCalled();
   });
 });
 

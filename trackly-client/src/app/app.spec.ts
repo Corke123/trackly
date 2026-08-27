@@ -10,6 +10,7 @@ import { ActivityStreamService } from './core/activity-stream.service';
 import { AuthService } from './core/auth.service';
 import { ActivityNotification } from './core/board.models';
 import { BoardStore } from './core/board.store';
+import { LiveBoardService } from './core/live-board.service';
 import { provideTracklyIcons } from './core/icons';
 import { NotificationService } from './core/notification.service';
 import { ThemeService } from './core/theme.service';
@@ -22,6 +23,7 @@ describe('App', () => {
   let dialogResult: string | undefined;
   let notifications: Subject<ActivityNotification>;
   let connect: ReturnType<typeof vi.fn>;
+  let startLiveBoard: ReturnType<typeof vi.fn>;
   let announce: ReturnType<typeof vi.fn>;
 
   async function build(): Promise<ComponentFixture<App>> {
@@ -49,6 +51,7 @@ describe('App', () => {
           provide: ActivityStreamService,
           useValue: { notifications, connect, disconnect: vi.fn() },
         },
+        { provide: LiveBoardService, useValue: { start: startLiveBoard } },
         {
           provide: NotificationService,
           useValue: { announce, notify: vi.fn(), reportError: vi.fn() },
@@ -69,6 +72,7 @@ describe('App', () => {
     dialogResult = undefined;
     notifications = new Subject<ActivityNotification>();
     connect = vi.fn();
+    startLiveBoard = vi.fn();
     announce = vi.fn();
   });
 
@@ -124,6 +128,12 @@ describe('App', () => {
     await build();
 
     expect(connect).toHaveBeenCalled();
+  });
+
+  it('starts following what other users do to the board as the shell starts', async () => {
+    await build();
+
+    expect(startLiveBoard).toHaveBeenCalled();
   });
 
   it('announces board news addressed to the signed-in user', async () => {

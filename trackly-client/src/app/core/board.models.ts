@@ -42,6 +42,13 @@ export interface ActivityNotification {
   readonly occurredAt: string;
 }
 
+export interface BoardChange {
+  readonly boardId: number;
+  readonly type: string;
+  readonly actorId: string;
+  readonly occurredAt: string;
+}
+
 /** Who the gateway says is signed in, and what they are allowed to do. */
 export interface CurrentUser {
   readonly username: string;
