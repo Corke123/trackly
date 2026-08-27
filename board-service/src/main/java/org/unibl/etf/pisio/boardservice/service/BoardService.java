@@ -1,5 +1,11 @@
 package org.unibl.etf.pisio.boardservice.service;
 
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.unibl.etf.pisio.boardservice.domain.Board;
@@ -17,13 +23,6 @@ import org.unibl.etf.pisio.boardservice.outbox.DomainEventPublisher;
 import org.unibl.etf.pisio.boardservice.repository.BoardRepository;
 import org.unibl.etf.pisio.boardservice.repository.TicketRepository;
 
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-
 @Service
 @Transactional
 public class BoardService {
@@ -31,7 +30,6 @@ public class BoardService {
     private final BoardRepository boardRepository;
     private final TicketRepository ticketRepository;
     private final DomainEventPublisher publisher;
-
 
     public BoardService(BoardRepository boardRepository, TicketRepository ticketRepository,
                         DomainEventPublisher publisher) {

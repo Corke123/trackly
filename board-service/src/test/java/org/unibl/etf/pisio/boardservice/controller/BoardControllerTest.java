@@ -1,5 +1,11 @@
 package org.unibl.etf.pisio.boardservice.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import java.time.Instant;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -23,13 +29,6 @@ import org.unibl.etf.pisio.boardservice.domain.Swimlane;
 import org.unibl.etf.pisio.boardservice.domain.Ticket;
 import org.unibl.etf.pisio.boardservice.service.BoardService;
 
-import java.time.Instant;
-import java.util.List;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
 @ExtendWith(MockitoExtension.class)
 class BoardControllerTest {
 
@@ -40,7 +39,12 @@ class BoardControllerTest {
     private BoardController boardController;
 
     @Test
-    @DisplayName("Given a valid request, when createBoard is called, then a 201 response with the created board is returned")
+    @DisplayName(
+            """
+            Given a valid request, \
+            when createBoard is called, \
+            then a 201 response with the created board is returned\
+            """)
     void createBoard() {
         Board board = new Board(1L, "Sprint board", List.of());
         when(boardService.createBoard("Sprint board")).thenReturn(board);
@@ -54,7 +58,12 @@ class BoardControllerTest {
     }
 
     @Test
-    @DisplayName("Given an existing board id, when getBoard is called, then the board view with its tickets is returned")
+    @DisplayName(
+            """
+            Given an existing board id, \
+            when getBoard is called, \
+            then the board view with its tickets is returned\
+            """)
     void getBoard() {
         Swimlane swimlane = new Swimlane(10L, "To Do");
         Board board = new Board(1L, "Board", List.of(swimlane));
@@ -70,7 +79,12 @@ class BoardControllerTest {
     }
 
     @Test
-    @DisplayName("Given a valid request, when addSwimlane is called, then a 201 response with the created swimlane is returned")
+    @DisplayName(
+            """
+            Given a valid request, \
+            when addSwimlane is called, \
+            then a 201 response with the created swimlane is returned\
+            """)
     void addSwimlane() {
         Swimlane created = new Swimlane(10L, "To Do");
         when(boardService.addSwimlane(1L, "To Do")).thenReturn(created);
@@ -83,12 +97,18 @@ class BoardControllerTest {
     }
 
     @Test
-    @DisplayName("Given a valid request, when createTicket is called, then a 201 response with the created ticket is returned and the JWT subject is the actor")
+    @DisplayName(
+            """
+            Given a valid request, \
+            when createTicket is called, \
+            then a 201 response with the created ticket is returned and the JWT subject is the actor\
+            """)
     void createTicket() {
         Ticket ticket = new Ticket(100L, 1L, 10L, "Title", "Desc", null, 0, Instant.parse("2026-07-25T10:00:00Z"));
         when(boardService.createTicket(1L, 10L, "Title", "Desc", "demo")).thenReturn(ticket);
 
-        ResponseEntity<TicketView> response = boardController.createTicket(1L, new CreateTicket(10L, "Title", "Desc"), jwtForDemoUser());
+        ResponseEntity<TicketView> response =
+                boardController.createTicket(1L, new CreateTicket(10L, "Title", "Desc"), jwtForDemoUser());
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         assertThat(response.getHeaders().getLocation()).hasToString("/tickets/100");
@@ -113,7 +133,8 @@ class BoardControllerTest {
 
         BoardView result = boardController.renameBoard(1L, new RenameBoard("Release board"));
 
-        assertThat(result).isEqualTo(new BoardView(1L, "Release board", List.of(new SwimlaneView(10L, "To Do", List.of()))));
+        assertThat(result).isEqualTo(
+                new BoardView(1L, "Release board", List.of(new SwimlaneView(10L, "To Do", List.of()))));
     }
 
     @Test
@@ -126,7 +147,12 @@ class BoardControllerTest {
     }
 
     @Test
-    @DisplayName("Given a new swimlane order, when reorderSwimlanes is called, then the board view in the new order is returned")
+    @DisplayName(
+            """
+            Given a new swimlane order, \
+            when reorderSwimlanes is called, \
+            then the board view in the new order is returned\
+            """)
     void reorderSwimlanes() {
         Board reordered = new Board(1L, "Board", List.of(new Swimlane(20L, "Doing"), new Swimlane(10L, "To Do")));
         when(boardService.reorderSwimlanes(1L, List.of(20L, 10L))).thenReturn(reordered);

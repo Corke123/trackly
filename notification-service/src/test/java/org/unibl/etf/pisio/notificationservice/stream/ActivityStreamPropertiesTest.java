@@ -1,11 +1,10 @@
 package org.unibl.etf.pisio.notificationservice.stream;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.Duration;
-
-import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 class ActivityStreamPropertiesTest {
 
@@ -19,7 +18,12 @@ class ActivityStreamPropertiesTest {
     }
 
     @Test
-    @DisplayName("Given nothing configured, when the properties are built, then a stream still has a timeout and a bounded replay")
+    @DisplayName(
+            """
+            Given nothing configured, \
+            when the properties are built, \
+            then a stream still has a timeout and a bounded replay\
+            """)
     void fallsBackToWorkableDefaults() {
         ActivityStreamProperties properties = new ActivityStreamProperties(null, 0);
 

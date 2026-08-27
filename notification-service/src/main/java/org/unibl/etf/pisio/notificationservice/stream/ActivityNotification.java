@@ -1,8 +1,7 @@
 package org.unibl.etf.pisio.notificationservice.stream;
 
-import org.unibl.etf.pisio.notificationservice.domain.Activity;
-
 import java.time.Instant;
+import org.unibl.etf.pisio.notificationservice.domain.Activity;
 
 public record ActivityNotification(
         Long id,

@@ -87,7 +87,7 @@ trackly/
 ├── identity-service/      # OAuth2 authorization server
 ├── board-service/         # core domain
 ├── notification-service/  # event consumer + activity feed + activity stream
-├── trackly-shared/        # parent POM: the build every service inherits (ADR 0024)
+├── trackly-shared/        # parent POM: the build, coverage and style gates every service inherits (ADR 0024, 0025)
 ├── trackly-client/        # Angular SPA (src/, e2e/ stubbed journeys, e2e-stack/ full-stack ones)
 ├── infra/                 # Terraform (modules + environments/{shared,staging,production})
 ├── docs/adr/              # architecture decision records
@@ -165,10 +165,13 @@ Notes:
 ### Running the tests
 
 ```bash
-# Commit stage — exactly what CI runs first: compile, unit tests, unit coverage gate. No Docker.
-# Same two commands in any service directory: board-service, notification-service,
+# Commit stage — exactly what CI runs first: Checkstyle, compile, unit tests, unit coverage gate.
+# No Docker. Same two commands in any service directory: board-service, notification-service,
 # identity-service, gateway-service.
 cd board-service && ./mvnw package
+
+# Style alone, without compiling — the first thing `package` would have failed on
+cd board-service && ./mvnw checkstyle:check
 
 # Full build — adds the Testcontainers integration tests and the merged coverage gate (needs Docker)
 cd board-service && ./mvnw verify
@@ -187,10 +190,17 @@ cd trackly-client && npm run e2e:stack
 Use `./mvnw` rather than `mvn`: the wrapper pins the Maven version, so a local build, the CI build and the Docker build
 agree.
 
-Each service builds on its own, from its own directory, but inherits its build — compiler settings, the test split and
-the coverage gates — from `trackly-shared/pom.xml`. Maven reads that parent straight off disk via `relativePath`, so
-there is nothing to publish or install first, and a change to the shared build rebuilds all four services
-([ADR 0024](docs/adr/0024-shared-build-in-a-parent-pom.md)).
+Each service builds on its own, from its own directory, but inherits its build — compiler settings, the test split, the
+coverage gates and the style gate — from `trackly-shared/pom.xml`. Maven reads that parent straight off disk via
+`relativePath`, so there is nothing to publish or install first, and a change to the shared build rebuilds all four
+services ([ADR 0024](docs/adr/0024-shared-build-in-a-parent-pom.md)).
+
+Java style is one of those inherited gates. Checkstyle runs in the `validate` phase against
+`trackly-shared/checkstyle.xml` — Google's ruleset as shipped inside the pinned Checkstyle artifact, with the line
+length at 120 and the indentation at what IntelliJ's stock formatter produces here — so `./mvnw package` rejects a
+misformatted file before it compiles ([ADR 0025](docs/adr/0025-formatting-is-gated-in-both-languages.md)). The client's
+formatting is gated the same way by prettier; `npm run format` fixes it in place, while Checkstyle only reports and
+leaves the edit to you.
 
 ## Continuous Integration
 
@@ -201,7 +211,7 @@ deployment pipeline (ADR 0010):
 
 | Stage             | Runs                                                                                                          | Gate             | Typical |
 |-------------------|---------------------------------------------------------------------------------------------------------------|------------------|---------|
-| Commit stage      | `./mvnw package` — compile, unit tests, JaCoCo unit gate (LINE/BRANCH ≥ 0.85)                                 | blocks the merge | ~2 min  |
+| Commit stage      | `./mvnw package` — Checkstyle, compile, unit tests, JaCoCo unit gate (LINE/BRANCH ≥ 0.85)                     | blocks the merge | ~2 min  |
 | Integration stage | `./mvnw verify` — Testcontainers (Postgres 17, Service Bus emulator), merged JaCoCo gate (LINE/BRANCH ≥ 0.90) | blocks the merge | ~6 min  |
 | Package           | Layer the commit stage's jar onto the runtime image, then Trivy scan                                          | blocks the merge | ~1 min  |
 
@@ -235,10 +245,10 @@ rather than a leg of the service matrix — a matrix leg cannot name a single up
 `trackly-client` is not a Maven service, so it has a pipeline of its own —
 [`client-ci.yaml`](.github/workflows/client-ci.yaml) — staged on the same principle:
 
-| Stage             | Runs                                                                             | Gate             | Typical |
-|-------------------|----------------------------------------------------------------------------------|------------------|---------|
-| Commit stage      | `npm run test:ci` — Vitest unit tests, coverage gate (≥ 85%)                      | blocks the merge | ~2 min  |
-| End-to-end stage  | `npm run e2e` — Playwright journeys for both roles against a stubbed gateway API  | blocks the merge | ~3 min  |
+| Stage             | Runs                                                                               | Gate             | Typical |
+|-------------------|------------------------------------------------------------------------------------|------------------|---------|
+| Commit stage      | `npm run format:check`, then `npm run test:ci` — prettier, Vitest, coverage ≥ 85%  | blocks the merge | ~2 min  |
+| End-to-end stage  | `npm run e2e` — Playwright journeys for both roles against a stubbed gateway API   | blocks the merge | ~3 min  |
 
 The journeys stub the gateway's API rather than starting the stack: what they are testing is the client's own behaviour
 (who may do what, drag and drop, optimistic moves rolling back), and the services' behaviour is already gated by their
@@ -246,8 +256,8 @@ Testcontainers tests. A full-stack smoke test belongs against a deployed staging
 continuous delivery.
 
 Beside the per-service stages, the `lint` job runs `actionlint`, `zizmor` and a container action that asserts the
-pipeline's own wiring invariants — that every service has a coverage gate and appears in change detection, the deploy
-and Dependabot, and that every job is bounded by a timeout and a permissions block
+pipeline's own wiring invariants — that every service has a style gate and a coverage gate and appears in change
+detection, the deploy and Dependabot, and that every job is bounded by a timeout and a permissions block
 ([ADR 0021](docs/adr/0021-pipeline-invariants-are-checked.md)). Adding a service now fails the pull request until it is
 wired in, naming the file that is missing it.
 

@@ -1,7 +1,22 @@
 package org.unibl.etf.pisio.notificationservice.processor;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
+
 import com.azure.core.util.BinaryData;
-import com.azure.messaging.servicebus.*;
+import com.azure.messaging.servicebus.ServiceBusClientBuilder;
+import com.azure.messaging.servicebus.ServiceBusErrorContext;
+import com.azure.messaging.servicebus.ServiceBusProcessorClient;
+import com.azure.messaging.servicebus.ServiceBusReceivedMessage;
+import com.azure.messaging.servicebus.ServiceBusReceivedMessageContext;
+import java.util.function.Consumer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -12,12 +27,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.unibl.etf.pisio.notificationservice.config.ServiceBusProperties;
 import org.unibl.etf.pisio.notificationservice.domain.event.TicketCreated;
 import org.unibl.etf.pisio.notificationservice.service.ActivityIngestService;
-
-import java.util.function.Consumer;
-
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class BoardEventProcessorTest {
@@ -46,16 +55,26 @@ class BoardEventProcessorTest {
     }
 
     @Test
-    @DisplayName("Given a processor client builder, when the processor is constructed, then message and error handlers are registered and the client is built")
+    @DisplayName(
+            """
+            Given a processor client builder, \
+            when the processor is constructed, \
+            then message and error handlers are registered and the client is left idle\
+            """)
     void constructorRegistersHandlers() {
         verify(builder).processMessage(any());
         verify(builder).processError(any());
-        verify(builder).buildProcessorClient();
+        verifyNoInteractions(client);
         assertThat(boardEventProcessor.isRunning()).isFalse();
     }
 
     @Test
-    @DisplayName("Given a received Service Bus message, when the message handler runs, then the message id, subject and body are handed to the ingest service")
+    @DisplayName(
+            """
+            Given a received Service Bus message, \
+            when the message handler runs, \
+            then the message id, subject and body are handed to the ingest service\
+            """)
     void messageHandlerDelegatesToIngestService() {
         ServiceBusReceivedMessage message = mock(ServiceBusReceivedMessage.class);
         when(message.getMessageId()).thenReturn("100");
@@ -70,7 +89,12 @@ class BoardEventProcessorTest {
     }
 
     @Test
-    @DisplayName("Given an ingest failure, when the message handler runs, then the exception propagates to the Service Bus client")
+    @DisplayName(
+            """
+            Given an ingest failure, \
+            when the message handler runs, \
+            then the exception propagates to the Service Bus client\
+            """)
     void messageHandlerPropagatesIngestFailure() {
         ServiceBusReceivedMessage message = mock(ServiceBusReceivedMessage.class);
         when(message.getMessageId()).thenReturn("100");
@@ -88,7 +112,12 @@ class BoardEventProcessorTest {
     }
 
     @Test
-    @DisplayName("Given a Service Bus error, when the error handler runs, then the failure is logged without being rethrown")
+    @DisplayName(
+            """
+            Given a Service Bus error, \
+            when the error handler runs, \
+            then the failure is logged without being rethrown\
+            """)
     void errorHandlerSwallowsError() {
         ServiceBusErrorContext context = mock(ServiceBusErrorContext.class);
         when(context.getEntityPath()).thenReturn("board-events/subscriptions/notifications");
@@ -101,7 +130,12 @@ class BoardEventProcessorTest {
     }
 
     @Test
-    @DisplayName("Given a constructed processor, when start is called, then the client is started and the processor reports running")
+    @DisplayName(
+            """
+            Given a constructed processor, \
+            when start is called, \
+            then the client is started and the processor reports running\
+            """)
     void startStartsClient() {
         boardEventProcessor.start();
 
@@ -110,7 +144,12 @@ class BoardEventProcessorTest {
     }
 
     @Test
-    @DisplayName("Given a running processor, when stop is called, then the client is closed and the processor no longer reports running")
+    @DisplayName(
+            """
+            Given a running processor, \
+            when stop is called, \
+            then the client is closed and the processor no longer reports running\
+            """)
     void stopClosesClient() {
         boardEventProcessor.start();
 

@@ -1,5 +1,20 @@
 package org.unibl.etf.pisio.boardservice.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
+
+import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -22,16 +37,6 @@ import org.unibl.etf.pisio.boardservice.exception.TicketNotFoundException;
 import org.unibl.etf.pisio.boardservice.outbox.DomainEventPublisher;
 import org.unibl.etf.pisio.boardservice.repository.BoardRepository;
 import org.unibl.etf.pisio.boardservice.repository.TicketRepository;
-
-import java.time.Instant;
-import java.util.List;
-import java.util.Optional;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyList;
-import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class BoardServiceTest {
@@ -75,7 +80,12 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("Given a saved board that comes back with its swimlanes in another order, when addSwimlane is called, then the new swimlane is returned rather than the last one")
+    @DisplayName(
+            """
+            Given a saved board that comes back with its swimlanes in another order, \
+            when addSwimlane is called, \
+            then the new swimlane is returned rather than the last one\
+            """)
     void addSwimlaneFindsTheNewSwimlaneWhateverTheOrder() {
         Swimlane toDo = new Swimlane(10L, "To Do");
         Swimlane doing = new Swimlane(20L, "Doing");
@@ -90,7 +100,12 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("Given an existing board, when renameBoard is called, then the renamed board is persisted and returned")
+    @DisplayName(
+            """
+            Given an existing board, \
+            when renameBoard is called, \
+            then the renamed board is persisted and returned\
+            """)
     void renameBoard() {
         Board existingBoard = new Board(1L, "Board", List.of(new Swimlane(10L, "To Do")));
         Board renamedBoard = new Board(1L, "Release board", List.of(new Swimlane(10L, "To Do")));
@@ -103,7 +118,12 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("Given a missing board, when renameBoard is called, then BoardNotFoundException is thrown and nothing is saved")
+    @DisplayName(
+            """
+            Given a missing board, \
+            when renameBoard is called, \
+            then BoardNotFoundException is thrown and nothing is saved\
+            """)
     void renameBoardMissingBoard() {
         when(boardRepository.findById(1L)).thenReturn(Optional.empty());
 
@@ -125,7 +145,12 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("Given a swimlane that still holds tickets, when deleteSwimlane is called, then SwimlaneNotEmptyException is thrown and the board is untouched")
+    @DisplayName(
+            """
+            Given a swimlane that still holds tickets, \
+            when deleteSwimlane is called, \
+            then SwimlaneNotEmptyException is thrown and the board is untouched\
+            """)
     void deleteSwimlaneWithTickets() {
         Board board = new Board(1L, "Board", List.of(new Swimlane(10L, "To Do")));
         when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
@@ -137,7 +162,12 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("Given a swimlane that is not on the board, when deleteSwimlane is called, then SwimlaneNotOnBoardException is thrown")
+    @DisplayName(
+            """
+            Given a swimlane that is not on the board, \
+            when deleteSwimlane is called, \
+            then SwimlaneNotOnBoardException is thrown\
+            """)
     void deleteSwimlaneNotOnBoard() {
         Board board = new Board(1L, "Board", List.of(new Swimlane(10L, "To Do")));
         when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
@@ -149,7 +179,12 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("Given every swimlane id in a new order, when reorderSwimlanes is called, then each swimlane is written to its new position")
+    @DisplayName(
+            """
+            Given every swimlane id in a new order, \
+            when reorderSwimlanes is called, \
+            then each swimlane is written to its new position\
+            """)
     void reorderSwimlanes() {
         Swimlane toDo = new Swimlane(10L, "To Do");
         Swimlane doing = new Swimlane(20L, "Doing");
@@ -164,7 +199,12 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("Given an order that omits a swimlane, when reorderSwimlanes is called, then IncompleteSwimlaneOrderException is thrown and no position is written")
+    @DisplayName(
+            """
+            Given an order that omits a swimlane, \
+            when reorderSwimlanes is called, \
+            then IncompleteSwimlaneOrderException is thrown and no position is written\
+            """)
     void reorderSwimlanesIncomplete() {
         Board board = new Board(1L, "Board", List.of(new Swimlane(10L, "To Do"), new Swimlane(20L, "Doing")));
         when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
@@ -176,7 +216,12 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("Given an order that names one swimlane twice, when reorderSwimlanes is called, then IncompleteSwimlaneOrderException is thrown and no position is written")
+    @DisplayName(
+            """
+            Given an order that names one swimlane twice, \
+            when reorderSwimlanes is called, \
+            then IncompleteSwimlaneOrderException is thrown and no position is written\
+            """)
     void reorderSwimlanesDuplicateSwimlane() {
         Board board = new Board(1L, "Board",
                 List.of(new Swimlane(10L, "To Do"), new Swimlane(20L, "Doing"), new Swimlane(30L, "Done")));
@@ -190,7 +235,12 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("Given an order naming an unknown swimlane, when reorderSwimlanes is called, then IncompleteSwimlaneOrderException is thrown")
+    @DisplayName(
+            """
+            Given an order naming an unknown swimlane, \
+            when reorderSwimlanes is called, \
+            then IncompleteSwimlaneOrderException is thrown\
+            """)
     void reorderSwimlanesUnknownSwimlane() {
         Board board = new Board(1L, "Board", List.of(new Swimlane(10L, "To Do"), new Swimlane(20L, "Doing")));
         when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
@@ -212,7 +262,12 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("Given a missing board, when addSwimlane is called, then BoardNotFoundException is thrown and nothing is saved")
+    @DisplayName(
+            """
+            Given a missing board, \
+            when addSwimlane is called, \
+            then BoardNotFoundException is thrown and nothing is saved\
+            """)
     void addSwimlaneMissingBoard() {
         when(boardRepository.findById(1L)).thenReturn(Optional.empty());
 
@@ -222,7 +277,12 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("Given a board with a swimlane, when createTicket is called, then the ticket is persisted at the next position and a TicketCreated event is published")
+    @DisplayName(
+            """
+            Given a board with a swimlane, \
+            when createTicket is called, \
+            then the ticket is persisted at the next position and a TicketCreated event is published\
+            """)
     void createTicket() {
         Instant fixedNow = Instant.parse("2026-07-25T10:00:00Z");
         Swimlane swimlane = new Swimlane(2L, "To Do");
@@ -244,7 +304,12 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("Given a missing board, when createTicket is called, then BoardNotFoundException is thrown and no ticket is created")
+    @DisplayName(
+            """
+            Given a missing board, \
+            when createTicket is called, \
+            then BoardNotFoundException is thrown and no ticket is created\
+            """)
     void createTicketMissingBoard() {
         when(boardRepository.findById(1L)).thenReturn(Optional.empty());
 
@@ -254,20 +319,31 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("Given a swimlane that does not belong to the board, when createTicket is called, then SwimlaneNotOnBoardException is thrown and no ticket is created")
+    @DisplayName(
+            """
+            Given a swimlane that does not belong to the board, \
+            when createTicket is called, \
+            then SwimlaneNotOnBoardException is thrown and no ticket is created\
+            """)
     void createTicketSwimlaneMissing() {
         Board board = new Board(1L, "Board", List.of());
         when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
 
-        assertThrows(SwimlaneNotOnBoardException.class, () -> boardService.createTicket(1L, 2L, "Title", "Desc", "actor-1"));
+        assertThrows(SwimlaneNotOnBoardException.class,
+                () -> boardService.createTicket(1L, 2L, "Title", "Desc", "actor-1"));
 
         verifyNoInteractions(ticketRepository, publisher);
     }
 
     @Test
-    @DisplayName("Given a ticket moved into another swimlane, when moveTicket is called, then both swimlanes are renumbered densely and a TicketMoved event is published")
+    @DisplayName(
+            """
+            Given a ticket moved into another swimlane, \
+            when moveTicket is called, \
+            then both swimlanes are renumbered densely and a TicketMoved event is published\
+            """)
     void moveTicketAcrossSwimlanes() {
-        Instant fixedNow = Instant.parse("2026-07-25T10:00:00Z");
+
         Board board = new Board(1L, "Board", List.of(new Swimlane(10L, "To Do"), new Swimlane(20L, "Doing")));
         Ticket moved = new Ticket(100L, 1L, 10L, "Moved", "Desc", null, 1, null);
         Ticket sourceSibling = new Ticket(101L, 1L, 10L, "Stays behind", "Desc", null, 2, null);
@@ -278,6 +354,7 @@ class BoardServiceTest {
         when(ticketRepository.findBySwimlaneIdOrderByPositionAsc(20L)).thenReturn(List.of(targetSibling));
         when(ticketRepository.saveAll(anyList())).thenAnswer(invocation -> List.copyOf(invocation.getArgument(0)));
 
+        Instant fixedNow = Instant.parse("2026-07-25T10:00:00Z");
         Ticket result;
         try (MockedStatic<Instant> instant = mockStatic(Instant.class, CALLS_REAL_METHODS)) {
             instant.when(Instant::now).thenReturn(fixedNow);
@@ -295,9 +372,13 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("Given a moved ticket that has an assignee, when moveTicket is called, then the event names the assignee and the swimlane it landed in")
+    @DisplayName(
+            """
+            Given a moved ticket that has an assignee, \
+            when moveTicket is called, \
+            then the event names the assignee and the swimlane it landed in\
+            """)
     void moveTicketCarriesAssigneeAndSwimlaneTitle() {
-        Instant fixedNow = Instant.parse("2026-07-25T10:00:00Z");
         Board board = new Board(1L, "Board", List.of(new Swimlane(10L, "To Do"), new Swimlane(20L, "Doing")));
         Ticket ticket = new Ticket(100L, 1L, 10L, "Fix login", "Desc", "user-2", 0, null);
         when(ticketRepository.findById(100L)).thenReturn(Optional.of(ticket));
@@ -306,16 +387,23 @@ class BoardServiceTest {
         when(ticketRepository.findBySwimlaneIdOrderByPositionAsc(20L)).thenReturn(List.of());
         when(ticketRepository.saveAll(anyList())).thenAnswer(invocation -> List.copyOf(invocation.getArgument(0)));
 
+        Instant fixedNow = Instant.parse("2026-07-25T10:00:00Z");
         try (MockedStatic<Instant> instant = mockStatic(Instant.class, CALLS_REAL_METHODS)) {
             instant.when(Instant::now).thenReturn(fixedNow);
             boardService.moveTicket(100L, 20L, 0, "actor-1");
         }
 
-        verify(publisher).publish(new TicketMoved(100L, 1L, 10L, 20L, "Fix login", "Doing", "user-2", "actor-1", fixedNow));
+        verify(publisher)
+                .publish(new TicketMoved(100L, 1L, 10L, 20L, "Fix login", "Doing", "user-2", "actor-1", fixedNow));
     }
 
     @Test
-    @DisplayName("Given a ticket reordered within its own swimlane, when moveTicket is called, then only that swimlane is renumbered")
+    @DisplayName(
+            """
+            Given a ticket reordered within its own swimlane, \
+            when moveTicket is called, \
+            then only that swimlane is renumbered\
+            """)
     void moveTicketWithinSwimlane() {
         Board board = new Board(1L, "Board", List.of(new Swimlane(10L, "To Do")));
         Ticket first = new Ticket(100L, 1L, 10L, "First", "Desc", null, 0, null);
@@ -338,7 +426,12 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("Given a ticket that keeps its position number but changes swimlane, when moveTicket is called, then it is still written")
+    @DisplayName(
+            """
+            Given a ticket that keeps its position number but changes swimlane, \
+            when moveTicket is called, \
+            then it is still written\
+            """)
     void moveTicketKeepingItsPositionNumber() {
         Board board = new Board(1L, "Board", List.of(new Swimlane(10L, "To Do"), new Swimlane(20L, "Doing")));
         Ticket ticket = new Ticket(100L, 1L, 10L, "Only", "Desc", null, 0, null);
@@ -356,7 +449,12 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("Given a ticket dropped back where it already was, when moveTicket is called, then only that ticket is written")
+    @DisplayName(
+            """
+            Given a ticket dropped back where it already was, \
+            when moveTicket is called, \
+            then only that ticket is written\
+            """)
     void moveTicketOntoItsOwnPosition() {
         Board board = new Board(1L, "Board", List.of(new Swimlane(10L, "To Do")));
         Ticket first = new Ticket(100L, 1L, 10L, "First", "Desc", null, 0, null);
@@ -374,7 +472,12 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("Given a position past the end of the target swimlane, when moveTicket is called, then the ticket is appended rather than rejected")
+    @DisplayName(
+            """
+            Given a position past the end of the target swimlane, \
+            when moveTicket is called, \
+            then the ticket is appended rather than rejected\
+            """)
     void moveTicketPastTheEnd() {
         Board board = new Board(1L, "Board", List.of(new Swimlane(10L, "To Do")));
         Ticket ticket = new Ticket(100L, 1L, 10L, "Only", "Desc", null, 0, null);
@@ -389,7 +492,12 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("Given a missing ticket, when moveTicket is called, then TicketNotFoundException is thrown and nothing is saved or published")
+    @DisplayName(
+            """
+            Given a missing ticket, \
+            when moveTicket is called, \
+            then TicketNotFoundException is thrown and nothing is saved or published\
+            """)
     void moveTicketMissingTicket() {
         when(ticketRepository.findById(100L)).thenReturn(Optional.empty());
 
@@ -400,7 +508,12 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("Given a target swimlane that does not belong to the ticket's board, when moveTicket is called, then SwimlaneNotOnBoardException is thrown and nothing is saved or published")
+    @DisplayName(
+            """
+            Given a target swimlane that does not belong to the ticket's board, \
+            when moveTicket is called, \
+            then SwimlaneNotOnBoardException is thrown and nothing is saved or published\
+            """)
     void moveTicketSwimlaneMissing() {
         Board board = new Board(1L, "Board", List.of());
         Ticket ticket = new Ticket(100L, 1L, 10L, "Title", "Desc", null, 0, null);
@@ -414,7 +527,12 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("Given an existing ticket, when assignTicket is called, then the ticket is assigned, persisted and a TicketAssigned event is published")
+    @DisplayName(
+            """
+            Given an existing ticket, \
+            when assignTicket is called, \
+            then the ticket is assigned, persisted and a TicketAssigned event is published\
+            """)
     void assignTicket() {
         Instant fixedNow = Instant.parse("2026-07-25T10:00:00Z");
         Ticket ticket = new Ticket(100L, 1L, 10L, "Title", "Desc", null, 0, null);
@@ -435,7 +553,12 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("Given a missing ticket, when assignTicket is called, then TicketNotFoundException is thrown and nothing is saved or published")
+    @DisplayName(
+            """
+            Given a missing ticket, \
+            when assignTicket is called, \
+            then TicketNotFoundException is thrown and nothing is saved or published\
+            """)
     void assignTicketMissingTicket() {
         when(ticketRepository.findById(100L)).thenReturn(Optional.empty());
 
@@ -446,7 +569,12 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("Given an existing ticket, when deleteTicket is called, then the ticket is removed and a TicketDeleted event is published")
+    @DisplayName(
+            """
+            Given an existing ticket, \
+            when deleteTicket is called, \
+            then the ticket is removed and a TicketDeleted event is published\
+            """)
     void deleteTicket() {
         Instant fixedNow = Instant.parse("2026-07-25T10:00:00Z");
         Board board = new Board(1L, "Board", List.of(new Swimlane(10L, "To Do")));
@@ -464,7 +592,12 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("Given a ticket deleted from the middle of a swimlane, when deleteTicket is called, then the tickets behind it shift up to keep a dense order")
+    @DisplayName(
+            """
+            Given a ticket deleted from the middle of a swimlane, \
+            when deleteTicket is called, \
+            then the tickets behind it shift up to keep a dense order\
+            """)
     void deleteTicketRenumbersRemainingTickets() {
         Board board = new Board(1L, "Board", List.of(new Swimlane(10L, "To Do")));
         Ticket first = new Ticket(100L, 1L, 10L, "First", null, null, 0, null);
@@ -481,7 +614,12 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("Given a missing ticket, when deleteTicket is called, then TicketNotFoundException is thrown and nothing is deleted or published")
+    @DisplayName(
+            """
+            Given a missing ticket, \
+            when deleteTicket is called, \
+            then TicketNotFoundException is thrown and nothing is deleted or published\
+            """)
     void deleteTicketMissingTicket() {
         when(ticketRepository.findById(404L)).thenReturn(Optional.empty());
 
@@ -530,7 +668,12 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("Given an existing board with tickets, when getBoardTickets is called, then tickets ordered by swimlane and position are returned")
+    @DisplayName(
+            """
+            Given an existing board with tickets, \
+            when getBoardTickets is called, \
+            then tickets ordered by swimlane and position are returned\
+            """)
     void getBoardTickets() {
         Board board = new Board(1L, "Board", List.of());
         List<Ticket> tickets = List.of(
@@ -548,7 +691,12 @@ class BoardServiceTest {
     }
 
     @Test
-    @DisplayName("Given a missing board id, when getBoardTickets is called, then BoardNotFoundException is thrown and tickets are never queried")
+    @DisplayName(
+            """
+            Given a missing board id, \
+            when getBoardTickets is called, \
+            then BoardNotFoundException is thrown and tickets are never queried\
+            """)
     void getBoardTicketsMissingBoard() {
         when(boardRepository.findById(1L)).thenReturn(Optional.empty());
 

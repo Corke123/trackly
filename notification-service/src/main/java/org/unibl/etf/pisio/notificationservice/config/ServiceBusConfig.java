@@ -15,7 +15,8 @@ public class ServiceBusConfig {
 
     @Bean(name = "serviceBusProcessorClient")
     @Profile("local")
-    public ServiceBusClientBuilder.ServiceBusProcessorClientBuilder connectionStringProcessorClient(ServiceBusProperties properties) {
+    public ServiceBusClientBuilder.ServiceBusProcessorClientBuilder connectionStringProcessorClient(
+            ServiceBusProperties properties) {
         return new ServiceBusClientBuilder()
                 .connectionString(properties.connectionString())
                 .processor()
@@ -25,7 +26,8 @@ public class ServiceBusConfig {
 
     @Bean(name = "serviceBusProcessorClient")
     @Profile("!local")
-    public ServiceBusClientBuilder.ServiceBusProcessorClientBuilder managedIdentityProcessorClient(ServiceBusProperties properties) {
+    public ServiceBusClientBuilder.ServiceBusProcessorClientBuilder managedIdentityProcessorClient(
+            ServiceBusProperties properties) {
         return new ServiceBusClientBuilder()
                 .fullyQualifiedNamespace(properties.namespace())
                 .credential(new DefaultAzureCredentialBuilder().build())

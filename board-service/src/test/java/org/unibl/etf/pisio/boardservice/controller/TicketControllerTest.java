@@ -1,5 +1,13 @@
 package org.unibl.etf.pisio.boardservice.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
+
+import java.time.Instant;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -14,15 +22,6 @@ import org.unibl.etf.pisio.boardservice.controller.dto.BoardView.TicketView;
 import org.unibl.etf.pisio.boardservice.controller.dto.Requests.UpdateTicket;
 import org.unibl.etf.pisio.boardservice.domain.Ticket;
 import org.unibl.etf.pisio.boardservice.service.BoardService;
-
-import java.time.Instant;
-import java.util.List;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class TicketControllerTest {
@@ -58,19 +57,27 @@ class TicketControllerTest {
     @Test
     @DisplayName("Given an assigneeId, when updateTicket is called, then the ticket is assigned")
     void updateTicketAssign() {
-        Ticket assigned = new Ticket(100L, 1L, 10L, "Title", "Desc", "user-1", 0, Instant.parse("2026-07-25T10:00:00Z"));
+        Ticket assigned =
+                new Ticket(100L, 1L, 10L, "Title", "Desc", "user-1", 0, Instant.parse("2026-07-25T10:00:00Z"));
         when(boardService.assignTicket(100L, "user-1", "demo")).thenReturn(assigned);
 
-        TicketView result = ticketController.updateTicket(100L, new UpdateTicket(null, null, "user-1"), jwtForDemoUser());
+        TicketView result =
+                ticketController.updateTicket(100L, new UpdateTicket(null, null, "user-1"), jwtForDemoUser());
 
         assertThat(result).isEqualTo(TicketView.of(assigned));
     }
 
     @Test
-    @DisplayName("Given swimlaneId, position and assigneeId, when updateTicket is called, then the ticket is moved and assigned")
+    @DisplayName(
+            """
+            Given swimlaneId, position and assigneeId, \
+            when updateTicket is called, \
+            then the ticket is moved and assigned\
+            """)
     void updateTicketMoveAndAssign() {
         Ticket moved = new Ticket(100L, 1L, 20L, "Title", "Desc", null, 2, Instant.parse("2026-07-25T10:00:00Z"));
-        Ticket assigned = new Ticket(100L, 1L, 20L, "Title", "Desc", "user-1", 2, Instant.parse("2026-07-25T10:00:00Z"));
+        Ticket assigned =
+                new Ticket(100L, 1L, 20L, "Title", "Desc", "user-1", 2, Instant.parse("2026-07-25T10:00:00Z"));
         when(boardService.moveTicket(100L, 20L, 2, "demo")).thenReturn(moved);
         when(boardService.assignTicket(100L, "user-1", "demo")).thenReturn(assigned);
 
@@ -132,7 +139,12 @@ class TicketControllerTest {
     }
 
     @Test
-    @DisplayName("Given a ticket id, when deleteTicket is called, then the service is asked to delete it and no content is returned")
+    @DisplayName(
+            """
+            Given a ticket id, \
+            when deleteTicket is called, \
+            then the service is asked to delete it and no content is returned\
+            """)
     void deleteTicket() {
         ResponseEntity<Void> result = ticketController.deleteTicket(100L, jwtForDemoUser());
 

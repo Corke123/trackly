@@ -1,5 +1,7 @@
 package org.unibl.etf.pisio.identityservice.jwk;
 
+import static java.util.Comparator.comparing;
+
 import com.azure.security.keyvault.certificates.CertificateClient;
 import com.azure.security.keyvault.certificates.models.CertificateProperties;
 import com.azure.security.keyvault.certificates.models.KeyVaultCertificate;
@@ -8,7 +10,6 @@ import com.azure.security.keyvault.secrets.models.KeyVaultSecret;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.jwk.KeyUse;
 import com.nimbusds.jose.jwk.RSAKey;
-
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
@@ -21,8 +22,6 @@ import java.security.interfaces.RSAPublicKey;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
-
-import static java.util.Comparator.comparing;
 
 /**
  * Loads the RSA signing key set from the enabled versions of an Azure Key Vault

@@ -1,9 +1,8 @@
 package org.unibl.etf.pisio.boardservice.domain;
 
+import java.time.Instant;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.mapping.Table;
-
-import java.time.Instant;
 
 @Table("ticket")
 public record Ticket(
@@ -22,14 +21,17 @@ public record Ticket(
     }
 
     public Ticket atPosition(int newPosition) {
-        return new Ticket(this.id, this.boardId, this.swimlaneId, this.title, this.description, this.assigneeId, newPosition, this.createdAt);
+        return new Ticket(this.id, this.boardId, this.swimlaneId, this.title, this.description, this.assigneeId,
+                newPosition, this.createdAt);
     }
 
     public Ticket moveTo(Long newSwimlaneId, int newPosition) {
-        return new Ticket(this.id, this.boardId, newSwimlaneId, this.title, this.description, this.assigneeId, newPosition, this.createdAt);
+        return new Ticket(this.id, this.boardId, newSwimlaneId, this.title, this.description, this.assigneeId,
+                newPosition, this.createdAt);
     }
 
     public Ticket assignTo(String newAssigneeId) {
-        return new Ticket(this.id, this.boardId, this.swimlaneId, this.title, this.description, newAssigneeId, this.position, this.createdAt);
+        return new Ticket(this.id, this.boardId, this.swimlaneId, this.title, this.description, newAssigneeId,
+                this.position, this.createdAt);
     }
 }

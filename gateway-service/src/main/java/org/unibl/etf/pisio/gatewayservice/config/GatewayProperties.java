@@ -1,12 +1,11 @@
 package org.unibl.etf.pisio.gatewayservice.config;
 
-import org.springframework.boot.context.properties.ConfigurationProperties;
-
 import java.net.URI;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties("trackly.gateway")
 public record GatewayProperties(String apiPrefix, boolean serveSpa, URI frontendUri, Map<String, Backend> backends) {
@@ -14,7 +13,8 @@ public record GatewayProperties(String apiPrefix, boolean serveSpa, URI frontend
     public GatewayProperties {
         if (!apiPrefix.startsWith("/") || apiPrefix.endsWith("/")) {
             throw new IllegalArgumentException(
-                    "trackly.gateway.api-prefix must start with '/' and must not end with '/', but was '" + apiPrefix + "'");
+                    ("trackly.gateway.api-prefix must start with '/' and must not end with '/', "
+                            + "but was '%s'").formatted(apiPrefix));
         }
 
         backends = (backends == null) ? Map.of() : Collections.unmodifiableMap(new LinkedHashMap<>(backends));
