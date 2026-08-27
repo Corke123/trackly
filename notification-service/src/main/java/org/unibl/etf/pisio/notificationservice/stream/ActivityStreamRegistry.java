@@ -35,6 +35,10 @@ public class ActivityStreamRegistry {
         }
     }
 
+    public void broadcast(SseEmitter.SseEventBuilder event) {
+        listeners.keySet().forEach(recipientId -> send(recipientId, event));
+    }
+
     public boolean sendTo(String recipientId, SseEmitter emitter, SseEmitter.SseEventBuilder event) {
         try {
             emitter.send(event);
@@ -53,7 +57,7 @@ public class ActivityStreamRegistry {
 
     @Scheduled(fixedDelayString = "${trackly.activity-stream.heartbeat-delay-ms:25000}")
     public void heartbeat() {
-        listeners.keySet().forEach(recipientId -> send(recipientId, SseEmitter.event().comment("ping")));
+        broadcast(SseEmitter.event().comment("ping"));
     }
 
     private void remove(String recipientId, SseEmitter emitter) {
