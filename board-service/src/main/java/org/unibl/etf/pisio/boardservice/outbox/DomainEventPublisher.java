@@ -19,7 +19,8 @@ public class DomainEventPublisher {
     public void publish(BoardEvent event) {
         try {
             String payload = jsonMapper.writeValueAsString(event);
-            OutboxEntry entry = new OutboxEntry("Ticket", String.valueOf(event.ticketId()), event.eventType(), payload, event.occurredAt());
+            OutboxEntry entry = new OutboxEntry("Ticket", String.valueOf(event.ticketId()), event.eventType(),
+                    payload, event.occurredAt());
             outboxRepository.save(entry);
         } catch (JacksonException e) {
             throw new IllegalStateException("Failed to serialize domain event " + event.eventType(), e);

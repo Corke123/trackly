@@ -1,17 +1,24 @@
 package org.unibl.etf.pisio.boardservice.integration;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.unibl.etf.pisio.boardservice.integration.BoardIntegrationTestSupport.addSwimlane;
+import static org.unibl.etf.pisio.boardservice.integration.BoardIntegrationTestSupport.awaitEvent;
+import static org.unibl.etf.pisio.boardservice.integration.BoardIntegrationTestSupport.createBoard;
+import static org.unibl.etf.pisio.boardservice.integration.BoardIntegrationTestSupport.createTicket;
+
 import com.azure.messaging.servicebus.ServiceBusReceivedMessage;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpStatus;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.client.RestTestClient;
 import org.unibl.etf.pisio.boardservice.controller.dto.BoardSummary;
 import org.unibl.etf.pisio.boardservice.controller.dto.BoardView;
@@ -25,14 +32,9 @@ import org.unibl.etf.pisio.boardservice.controller.dto.Requests.ReorderSwimlanes
 import org.unibl.etf.pisio.boardservice.domain.Board;
 import org.unibl.etf.pisio.boardservice.domain.Swimlane;
 import org.unibl.etf.pisio.boardservice.domain.Ticket;
-
-import java.util.List;
 import org.unibl.etf.pisio.boardservice.integration.ServiceBusTestSupportConfig.BoardEventTestReceiver;
 import org.unibl.etf.pisio.boardservice.repository.BoardRepository;
 import org.unibl.etf.pisio.boardservice.repository.TicketRepository;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.unibl.etf.pisio.boardservice.integration.BoardIntegrationTestSupport.*;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import({TestcontainersConfig.class, ServiceBusTestSupportConfig.class})
@@ -58,7 +60,12 @@ class BoardControllerIntegrationTest {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Test
-    @DisplayName("Given a valid request, when POST /boards is called, then a 201 response is returned and the board is persisted")
+    @DisplayName(
+            """
+            Given a valid request, \
+            when POST /boards is called, \
+            then a 201 response is returned and the board is persisted\
+            """)
     void createBoardEndpoint() {
         BoardView response = restTestClient.post()
                 .uri("/boards")
@@ -79,7 +86,12 @@ class BoardControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("Given a valid request, when POST /boards/{boardId}/swimlanes is called, then a 201 response is returned and the swimlane is persisted on the board")
+    @DisplayName(
+            """
+            Given a valid request, \
+            when POST /boards/{boardId}/swimlanes is called, \
+            then a 201 response is returned and the swimlane is persisted on the board\
+            """)
     void addSwimlaneEndpoint() {
         Long boardId = createBoard(restTestClient, "Board");
 
@@ -103,7 +115,12 @@ class BoardControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("Given a valid request, when POST /boards/{boardId}/tickets is called, then a 201 response is returned, the ticket is persisted and a TicketCreated event is published")
+    @DisplayName(
+            """
+            Given a valid request, when POST /boards/{boardId}/tickets is called, \
+            then a 201 response is returned, \
+            the ticket is persisted and a TicketCreated event is published\
+            """)
     void createTicketEndpoint() throws Exception {
         Long boardId = createBoard(restTestClient, "Board");
         Long swimlaneId = addSwimlane(restTestClient, boardId, "To Do");
@@ -139,7 +156,12 @@ class BoardControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("Given an existing board with a swimlane and a ticket, when GET /boards/{boardId} is called, then the full board view is returned")
+    @DisplayName(
+            """
+            Given an existing board with a swimlane and a ticket, \
+            when GET /boards/{boardId} is called, \
+            then the full board view is returned\
+            """)
     void getBoardEndpoint() {
         Long boardId = createBoard(restTestClient, "Board");
         Long swimlaneId = addSwimlane(restTestClient, boardId, "To Do");
@@ -183,9 +205,9 @@ class BoardControllerIntegrationTest {
                 .returnResult()
                 .getResponseBody();
 
-        assertThat(response).isNotNull();
-        assertThat(response).contains(new BoardSummary(boardId, "Board"));
-        assertThat(response).extracting(BoardSummary::name).contains("Trackly Board");
+        assertThat(response).isNotNull()
+                .contains(new BoardSummary(boardId, "Board"))
+                .extracting(BoardSummary::name).contains("Trackly Board");
     }
 
     @Test
@@ -210,7 +232,12 @@ class BoardControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("Given a blank name, when PATCH /boards/{boardId} is called, then a 400 is returned and the board keeps its name")
+    @DisplayName(
+            """
+            Given a blank name, \
+            when PATCH /boards/{boardId} is called, \
+            then a 400 is returned and the board keeps its name\
+            """)
     void renameBoardRejectsBlankName() {
         Long boardId = createBoard(restTestClient, "Board");
 
@@ -224,7 +251,12 @@ class BoardControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("Given an empty swimlane, when DELETE /boards/{boardId}/swimlanes/{swimlaneId} is called, then a 204 is returned and the swimlane is gone")
+    @DisplayName(
+            """
+            Given an empty swimlane, \
+            when DELETE /boards/{boardId}/swimlanes/{swimlaneId} is called, \
+            then a 204 is returned and the swimlane is gone\
+            """)
     void deleteSwimlaneEndpoint() {
         Long boardId = createBoard(restTestClient, "Board");
         Long swimlaneId = addSwimlane(restTestClient, boardId, "To Do");
@@ -240,7 +272,12 @@ class BoardControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("Given a swimlane holding a ticket, when DELETE /boards/{boardId}/swimlanes/{swimlaneId} is called, then a 409 is returned and the swimlane survives")
+    @DisplayName(
+            """
+            Given a swimlane holding a ticket, \
+            when DELETE /boards/{boardId}/swimlanes/{swimlaneId} is called, \
+            then a 409 is returned and the swimlane survives\
+            """)
     void deleteSwimlaneRejectsNonEmptySwimlane() {
         Long boardId = createBoard(restTestClient, "Board");
         Long swimlaneId = addSwimlane(restTestClient, boardId, "To Do");
@@ -256,7 +293,12 @@ class BoardControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("Given a new order, when PUT /boards/{boardId}/swimlanes/order is called, then the swimlanes come back in that order and keep their tickets")
+    @DisplayName(
+            """
+            Given a new order, \
+            when PUT /boards/{boardId}/swimlanes/order is called, \
+            then the swimlanes come back in that order and keep their tickets\
+            """)
     void reorderSwimlanesEndpoint() {
         Long boardId = createBoard(restTestClient, "Board");
         Long toDoId = addSwimlane(restTestClient, boardId, "To Do");
@@ -283,7 +325,12 @@ class BoardControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("Given an order that omits a swimlane, when PUT /boards/{boardId}/swimlanes/order is called, then a 422 is returned and the order is unchanged")
+    @DisplayName(
+            """
+            Given an order that omits a swimlane, \
+            when PUT /boards/{boardId}/swimlanes/order is called, \
+            then a 422 is returned and the order is unchanged\
+            """)
     void reorderSwimlanesRejectsIncompleteOrder() {
         Long boardId = createBoard(restTestClient, "Board");
         Long toDoId = addSwimlane(restTestClient, boardId, "To Do");
@@ -300,7 +347,12 @@ class BoardControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("Given a plain user, when the admin-only board endpoints are called, then a 403 is returned and nothing changes")
+    @DisplayName(
+            """
+            Given a plain user, \
+            when the admin-only board endpoints are called, \
+            then a 403 is returned and nothing changes\
+            """)
     void adminOnlyEndpointsAreClosedToPlainUsers() {
         Long boardId = createBoard(restTestClient, "Board");
         Long swimlaneId = addSwimlane(restTestClient, boardId, "To Do");

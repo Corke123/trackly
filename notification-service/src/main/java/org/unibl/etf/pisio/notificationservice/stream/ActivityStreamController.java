@@ -1,5 +1,6 @@
 package org.unibl.etf.pisio.notificationservice.stream;
 
+import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Limit;
@@ -13,8 +14,6 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.unibl.etf.pisio.notificationservice.domain.Activity;
 import org.unibl.etf.pisio.notificationservice.repository.ActivityRepository;
-
-import java.util.List;
 
 @RestController
 public class ActivityStreamController {

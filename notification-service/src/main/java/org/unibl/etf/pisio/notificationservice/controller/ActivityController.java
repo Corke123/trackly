@@ -1,14 +1,13 @@
 package org.unibl.etf.pisio.notificationservice.controller;
 
+import java.time.Instant;
+import java.util.List;
 import org.springframework.data.domain.Limit;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.unibl.etf.pisio.notificationservice.domain.Activity;
 import org.unibl.etf.pisio.notificationservice.repository.ActivityRepository;
-
-import java.time.Instant;
-import java.util.List;
 
 @RestController
 public class ActivityController {

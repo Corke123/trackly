@@ -1,7 +1,11 @@
 package org.unibl.etf.pisio.boardservice.integration;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
+import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
+
 import com.github.dockerjava.api.model.Capability;
 import com.github.dockerjava.api.model.HostConfig;
+import java.util.List;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
@@ -16,11 +20,6 @@ import org.testcontainers.containers.Network;
 import org.testcontainers.mssqlserver.MSSQLServerContainer;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.MountableFile;
-
-import java.util.List;
-
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
-import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 
 @TestConfiguration(proxyBeanMethods = false)
 public class TestcontainersConfig {
@@ -53,7 +52,8 @@ public class TestcontainersConfig {
 
     @Bean
     @SuppressWarnings("resource")
-    ServiceBusEmulatorContainer serviceBusEmulatorContainer(Network serviceBusNetwork, MSSQLServerContainer mssqlServerContainer) {
+    ServiceBusEmulatorContainer serviceBusEmulatorContainer(Network serviceBusNetwork,
+                                                            MSSQLServerContainer mssqlServerContainer) {
         return new ServiceBusEmulatorContainer("mcr.microsoft.com/azure-messaging/servicebus-emulator:1.1.2")
                 .acceptLicense()
                 .withConfig(MountableFile.forClasspathResource("servicebus-config.json"))
@@ -63,14 +63,16 @@ public class TestcontainersConfig {
 
     @Bean
     DynamicPropertyRegistrar serviceBusProperties(ServiceBusEmulatorContainer serviceBusEmulatorContainer) {
-        return registry -> registry.add("trackly.servicebus.connection-string", serviceBusEmulatorContainer::getConnectionString);
+        return registry -> registry
+                .add("trackly.servicebus.connection-string", serviceBusEmulatorContainer::getConnectionString);
     }
 
     @Bean
     JwtDecoder jwtDecoder() {
         return _ -> {
             throw new UnsupportedOperationException(
-                    "JwtDecoder should never be invoked: the security filter chain isn't applied to RestTestClient requests in these tests");
+                    "JwtDecoder should never be invoked: "
+                            + "the security filter chain isn't applied to RestTestClient requests in these tests");
         };
     }
 

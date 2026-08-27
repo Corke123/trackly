@@ -43,6 +43,14 @@ def inherited_poms(pom: Path) -> list[Path]:
     return chain
 
 
+def plugin_block(pom: str, artifact: str) -> str | None:
+    """The `<plugin>` element declaring `artifact`, nearest declaration first."""
+    for block in re.findall(r"<plugin>.*?</plugin>", pom, re.DOTALL):
+        if f"<artifactId>{artifact}</artifactId>" in block:
+            return block
+    return None
+
+
 def discover_services(root: Path) -> list[str]:
     return sorted(
         p.name
@@ -68,7 +76,10 @@ def check_service_layout(service: str, min_coverage: float) -> None:
             fail(f"{service}/{required}", f"{service} is a service but has no {required}")
 
     own = directory / "pom.xml"
-    pom = "\n".join(path.read_text() for path in [own, *inherited_poms(own)])
+    chain = [own, *inherited_poms(own)]
+    pom = "\n".join(path.read_text() for path in chain)
+
+    check_style_is_gated(service, chain)
 
     if "jacoco-maven-plugin" not in pom:
         fail(f"{service}/pom.xml", "no jacoco-maven-plugin: this service's coverage is reported, not gated")
@@ -93,6 +104,44 @@ def check_service_layout(service: str, min_coverage: float) -> None:
             f"{service}/.ci/testcontainers-images.txt",
             "integration tests start Testcontainers but the image list the integration stage pre-pulls is missing",
         )
+
+
+def check_style_is_gated(service: str, chain: list[Path]) -> None:
+    """Checkstyle is the first gate `./mvnw package` reaches, and every way of weakening it is silent."""
+    pom = "\n".join(path.read_text() for path in chain)
+    plugin = plugin_block(pom, "maven-checkstyle-plugin")
+
+    if plugin is None:
+        fail(f"{service}/pom.xml", "no maven-checkstyle-plugin: this service's style is reported, not gated")
+        return
+
+    if "<goal>check</goal>" not in plugin:
+        fail(
+            f"{service}/pom.xml",
+            "maven-checkstyle-plugin binds no check goal, so it can only report style and never fail on it",
+        )
+
+    if "<violationSeverity>error</violationSeverity>" not in plugin:
+        fail(
+            f"{service}/pom.xml",
+            "maven-checkstyle-plugin does not set <violationSeverity>error</violationSeverity>, "
+            "so violations under that severity leave the build green",
+        )
+
+    location = re.search(r"<configLocation>([^<]+)</configLocation>", plugin)
+    config = Path(location.group(1).replace("${project.basedir}", service)) if location else None
+    if config is None or not config.is_file():
+        fail(f"{service}/pom.xml", "maven-checkstyle-plugin names no readable <configLocation> ruleset")
+        return
+
+    expansion = " ".join(re.findall(r"<propertyExpansion>([^<]+)</propertyExpansion>", plugin))
+    for deferred in re.findall(r'name="severity"\s+value="\$\{([^}]+)\}"', config.read_text()):
+        if f"{deferred}=error" not in expansion:
+            fail(
+                f"{service}/pom.xml",
+                f"{config} defers its severity to ${{{deferred}}} and no <propertyExpansion> sets it to error, "
+                "so every rule degrades to a warning and the gate passes on any violation",
+            )
 
 
 def check_service_is_wired(service: str) -> None:
@@ -183,8 +232,8 @@ def summarise(services: list[str]) -> None:
     if violations:
         lines += [f"**{len(violations)} violation(s):**", ""] + [f"- {v}" for v in violations]
     else:
-        lines.append("Every service is wired into change detection, the deploy, Dependabot and a coverage gate, "
-                     "and every job is bounded by a timeout and a permissions block.")
+        lines.append("Every service is wired into change detection, the deploy, Dependabot, a style gate and a "
+                     "coverage gate, and every job is bounded by a timeout and a permissions block.")
     lines.append("")
 
     summary = os.environ.get("GITHUB_STEP_SUMMARY")

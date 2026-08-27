@@ -1,5 +1,11 @@
 package org.unibl.etf.pisio.notificationservice.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
+
+import java.time.Instant;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -11,13 +17,6 @@ import org.unibl.etf.pisio.notificationservice.domain.Activity;
 import org.unibl.etf.pisio.notificationservice.domain.event.TicketCreated;
 import org.unibl.etf.pisio.notificationservice.domain.event.TicketMoved;
 import org.unibl.etf.pisio.notificationservice.repository.ActivityRepository;
-
-import java.time.Instant;
-import java.util.List;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
-import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class ActivityControllerTest {
@@ -34,7 +33,8 @@ class ActivityControllerTest {
     @DisplayName("Given no board id, when feed is called, then the latest activities across all boards are returned")
     void feedWithoutBoardId() {
         Activity first = activity(1L, 10L, TicketCreated.TYPE, "Ticket #100 created: Title", OCCURRED_AT);
-        Activity second = activity(2L, 20L, TicketMoved.TYPE, "Ticket #101 moved to swimlane 3", OCCURRED_AT.minusSeconds(60));
+        Activity second = activity(2L, 20L, TicketMoved.TYPE, "Ticket #101 moved to swimlane 3",
+                OCCURRED_AT.minusSeconds(60));
         when(activityRepository.findByOrderByOccurredAtDesc(ActivityController.FEED_SIZE))
                 .thenReturn(List.of(first, second));
 
@@ -42,7 +42,8 @@ class ActivityControllerTest {
 
         assertThat(result).containsExactly(
                 new ActivityView(1L, 10L, TicketCreated.TYPE, "Ticket #100 created: Title", "actor-1", OCCURRED_AT),
-                new ActivityView(2L, 20L, TicketMoved.TYPE, "Ticket #101 moved to swimlane 3", "actor-1", OCCURRED_AT.minusSeconds(60))
+                new ActivityView(2L, 20L, TicketMoved.TYPE, "Ticket #101 moved to swimlane 3", "actor-1",
+                        OCCURRED_AT.minusSeconds(60))
         );
         verifyNoMoreInteractions(activityRepository);
     }

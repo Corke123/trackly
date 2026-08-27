@@ -1,10 +1,9 @@
 package org.unibl.etf.pisio.identityservice.jwk;
 
-import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.core.io.Resource;
-
 import java.time.Duration;
 import java.util.List;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.core.io.Resource;
 
 @ConfigurationProperties("trackly.jwt.signing")
 public record JwtSigningProperties(String source, Duration refreshInterval, int publishedVersions, Pem pem,

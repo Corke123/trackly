@@ -1,5 +1,10 @@
 package org.unibl.etf.pisio.identityservice.jwk;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import com.azure.core.http.rest.PagedIterable;
 import com.azure.security.keyvault.certificates.CertificateClient;
 import com.azure.security.keyvault.certificates.models.CertificateProperties;
@@ -8,9 +13,6 @@ import com.azure.security.keyvault.secrets.SecretClient;
 import com.azure.security.keyvault.secrets.models.KeyVaultSecret;
 import com.nimbusds.jose.jwk.KeyUse;
 import com.nimbusds.jose.jwk.RSAKey;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
@@ -19,17 +21,15 @@ import java.time.OffsetDateTime;
 import java.util.Base64;
 import java.util.List;
 import java.util.stream.Stream;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.core.io.ClassPathResource;
 
 class KeyVaultSigningKeysTest {
 
     private static final String CERTIFICATE_NAME = "trackly-signing";
 
-    private static final String SIGNING_PKCS12 = text("keyvault/self-signed-test-keystore-pkcs12.base64");
+    private static final String SIGNING_PKCS12 = text();
 
     private static final byte[] PREVIOUS_CERTIFICATE = bytes("keyvault/previous-certificate.der");
 
@@ -89,17 +89,17 @@ class KeyVaultSigningKeysTest {
     void failsWhenNoVersionIsEnabled() {
         versionsAre(version("disabled", this.now, false));
 
-        assertThatThrownBy(() -> signingKeys(5).load()).isInstanceOf(IllegalStateException.class)
+        assertThatThrownBy(signingKeys(5)::load).isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining(CERTIFICATE_NAME);
     }
 
     @Test
-    void failsWhenSigningMaterialIsNotAPkcs12Store() {
+    void failsWhenSigningMaterialIsNotPkcs12Store() {
         versionsAre(version("new", this.now, true));
         signingMaterialIs(Base64.getEncoder().encodeToString("not a pkcs12 store".getBytes(StandardCharsets.UTF_8)),
                 "new");
 
-        assertThatThrownBy(() -> signingKeys(5).load()).isInstanceOf(IllegalStateException.class)
+        assertThatThrownBy(signingKeys(5)::load).isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("new");
     }
 
@@ -109,7 +109,7 @@ class KeyVaultSigningKeysTest {
         signingMaterialIs(SIGNING_PKCS12, "new");
         publicCertificateIs("not a certificate".getBytes(StandardCharsets.UTF_8), "old");
 
-        assertThatThrownBy(() -> signingKeys(5).load()).isInstanceOf(IllegalStateException.class)
+        assertThatThrownBy(signingKeys(5)::load).isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("old");
     }
 
@@ -144,12 +144,13 @@ class KeyVaultSigningKeysTest {
         when(this.certificateClient.getCertificateVersion(CERTIFICATE_NAME, version)).thenReturn(certificate);
     }
 
-    private static String text(String name) {
-        return new String(bytes(name), StandardCharsets.US_ASCII).trim();
+    private static String text() {
+        return new String(bytes("keyvault/self-signed-test-keystore-pkcs12.base64"), StandardCharsets.US_ASCII)
+                .trim();
     }
 
     private static byte[] bytes(String name) {
-        try (InputStream stream = KeyVaultSigningKeysTest.class.getClassLoader().getResourceAsStream(name)) {
+        try (InputStream stream = new ClassPathResource(name).getInputStream()) {
             return stream.readAllBytes();
         } catch (IOException ex) {
             throw new UncheckedIOException(ex);

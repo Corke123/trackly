@@ -1,21 +1,20 @@
 package org.unibl.etf.pisio.identityservice.jwk;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 import com.nimbusds.jose.jwk.KeyUse;
 import com.nimbusds.jose.jwk.RSAKey;
-import org.junit.jupiter.api.Test;
-import org.springframework.core.io.ByteArrayResource;
-import org.springframework.core.io.ClassPathResource;
-import org.springframework.core.io.Resource;
-
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.KeyPairGenerator;
 import java.util.Base64;
 import java.util.List;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import org.junit.jupiter.api.Test;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.Resource;
 
 class PemSigningKeysTest {
 
@@ -47,23 +46,23 @@ class PemSigningKeysTest {
 
     @Test
     void rejectsEmptyLocationList() {
-        assertThatThrownBy(() -> new PemSigningKeys(List.of())).isInstanceOf(IllegalStateException.class);
+        List<Resource> noLocations = List.of();
+
+        assertThatThrownBy(() -> new PemSigningKeys(noLocations)).isInstanceOf(IllegalStateException.class);
     }
 
     @Test
-    void rejectsAKeyThatIsNotRsaWithCrtParameters() throws Exception {
-        Resource ellipticCurve = ellipticCurveKey();
+    void rejectsKeyThatIsNotRsaWithCrtParameters() throws Exception {
+        SigningKeys signingKeys = new PemSigningKeys(List.of(ellipticCurveKey()));
 
-        assertThatThrownBy(() -> new PemSigningKeys(List.of(ellipticCurve)).load())
-                .isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(signingKeys::load).isInstanceOf(IllegalStateException.class);
     }
 
     @Test
-    void failsWhenAKeyLocationCannotBeRead() {
-        Resource missing = new ClassPathResource("jwt/no-such-signing-key.pem");
+    void failsWhenKeyLocationCannotBeRead() {
+        SigningKeys signingKeys = new PemSigningKeys(List.of(new ClassPathResource("jwt/no-such-signing-key.pem")));
 
-        assertThatThrownBy(() -> new PemSigningKeys(List.of(missing)).load())
-                .isInstanceOf(UncheckedIOException.class);
+        assertThatThrownBy(signingKeys::load).isInstanceOf(UncheckedIOException.class);
     }
 
     private static Resource ellipticCurveKey() throws GeneralSecurityException {

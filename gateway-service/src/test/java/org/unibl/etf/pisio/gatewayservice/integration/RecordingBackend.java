@@ -1,11 +1,10 @@
 package org.unibl.etf.pisio.gatewayservice.integration;
 
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import reactor.core.publisher.Mono;
 import reactor.netty.DisposableServer;
 import reactor.netty.http.server.HttpServer;
-
-import java.util.Queue;
-import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
  * A stand-in for a downstream service on an ephemeral port. It records what actually arrived, which

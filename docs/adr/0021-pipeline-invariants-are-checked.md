@@ -17,6 +17,11 @@ relationships, and the `lint` job in `ci.yaml` runs it on every pull request.
   and declares — in its own POM or one it inherits from — a JaCoCo `check` whose weakest `<minimum>` is at
   least 0.85. The checker follows `relativePath` to read the chain, so the gate a service inherits from
   `trackly-shared` (ADR 0024) counts as its own.
+- Every such service declares — again in its own POM or an inherited one — a `maven-checkstyle-plugin`
+  that actually gates: a bound `check` goal, `violationSeverity` of `error`, a readable `configLocation`,
+  and a `propertyExpansion` for every `severity` the ruleset defers to a property. That last assertion is
+  the one that matters: `google_checks` defaults its severity to `warning`, so a POM that forgets to
+  expand it prints every violation and exits zero ([ADR 0025](0025-formatting-is-gated-in-both-languages.md)).
 - Every such service appears in `ci.yaml`'s path filters, in `select-services.sh`'s list, in
   `deploy.yaml`, and in `dependabot.yml` as both a `maven` and a `docker` ecosystem.
 - Every POM that services inherit from appears in `ci.yaml`'s path filters. Inheritance makes the shared
@@ -31,6 +36,9 @@ relationships, and the `lint` job in `ci.yaml` runs it on every pull request.
 
 It was verified against a deliberately broken copy of the repository — a weakened coverage minimum, a
 deleted Dependabot entry, a removed `timeout-minutes` and an unpinned action — and reported all four. The
+Checkstyle assertions were verified the same way against five more: a deleted plugin, an unbound `check`
+goal, a removed `violationSeverity`, a removed `propertyExpansion` and a ruleset moved out from under
+`configLocation`. The
 two inheritance-aware assertions were verified the same way once ADR 0024 landed: weakening the
 `<minimum>` in the parent is reported against all four services, and removing the parent's path filter is
 reported against `ci.yaml`.

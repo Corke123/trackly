@@ -1,9 +1,8 @@
 package org.unibl.etf.pisio.boardservice.outbox;
 
+import java.time.Instant;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.mapping.Table;
-
-import java.time.Instant;
 
 @Table("outbox")
 public record OutboxEntry(

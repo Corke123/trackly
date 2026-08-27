@@ -1,9 +1,8 @@
 package org.unibl.etf.pisio.notificationservice.domain;
 
+import java.time.Instant;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.mapping.Table;
-
-import java.time.Instant;
 
 @Table("activity")
 public record Activity(

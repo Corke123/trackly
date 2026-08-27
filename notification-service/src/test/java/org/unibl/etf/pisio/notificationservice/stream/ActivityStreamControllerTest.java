@@ -1,5 +1,18 @@
 package org.unibl.etf.pisio.notificationservice.stream;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -12,15 +25,6 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.unibl.etf.pisio.notificationservice.domain.Activity;
 import org.unibl.etf.pisio.notificationservice.repository.ActivityRepository;
-
-import java.time.Duration;
-import java.time.Instant;
-import java.util.List;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class ActivityStreamControllerTest {
@@ -41,9 +45,14 @@ class ActivityStreamControllerTest {
     }
 
     @Test
-    @DisplayName("Given a signed-in user, when the stream is opened, then it is registered against the subject of their token and nobody else's")
+    @DisplayName(
+            """
+            Given a signed-in user, \
+            when the stream is opened, \
+            then it is registered against the subject of their token and nobody else's\
+            """)
     void registersTheTokenSubject() {
-        SseEmitter emitter = controller.stream(tokenFor("user-1"), null, null);
+        SseEmitter emitter = controller.stream(tokenFor(), null, null);
 
         assertThat(registry.emittersFor("user-1")).containsExactly(emitter);
         assertThat(registry.emittersFor("user-2")).isEmpty();
@@ -51,33 +60,43 @@ class ActivityStreamControllerTest {
 
     @Test
     @DisplayName("Given no Last-Event-ID, when the stream is opened, then nothing is replayed")
-    void replaysNothingOnAFirstConnection() {
-        controller.stream(tokenFor("user-1"), null, null);
+    void replaysNothingOnFirstConnection() {
+        controller.stream(tokenFor(), null, null);
 
         verify(activities, never()).findByRecipientIdAndIdGreaterThanOrderByIdAsc(any(), any(), any());
     }
 
     @Test
-    @DisplayName("Given a connection that dies partway through a replay, when the rest is sent, then it stops rather than writing into a dead stream")
-    void stopsReplayingIntoADeadConnection() {
+    @DisplayName(
+            """
+            Given a connection that dies partway through a replay, \
+            when the rest is sent, \
+            then it stops rather than writing into a dead stream\
+            """)
+    void stopsReplayingIntoDeadConnection() {
         when(activities.findByRecipientIdAndIdGreaterThanOrderByIdAsc(eq("user-1"), eq(7L), any()))
-                .thenReturn(List.of(addressed(8L, "user-1"), addressed(9L, "user-1")));
+                .thenReturn(List.of(addressed(8L), addressed(9L)));
         doReturn(true, false).when(registry)
                 .sendTo(eq("user-1"), any(SseEmitter.class), any(SseEmitter.SseEventBuilder.class));
 
-        controller.stream(tokenFor("user-1"), "7", null);
+        controller.stream(tokenFor(), "7", null);
 
         verify(registry, times(2))
                 .sendTo(eq("user-1"), any(SseEmitter.class), any(SseEmitter.SseEventBuilder.class));
     }
 
     @Test
-    @DisplayName("Given a Last-Event-ID, when the stream is reopened, then only that recipient's later activities are replayed")
+    @DisplayName(
+            """
+            Given a Last-Event-ID, \
+            when the stream is reopened, \
+            then only that recipient's later activities are replayed\
+            """)
     void replaysWhatWasMissed() {
         when(activities.findByRecipientIdAndIdGreaterThanOrderByIdAsc(eq("user-1"), eq(7L), any()))
-                .thenReturn(List.of(addressed(8L, "user-1"), addressed(9L, "user-1")));
+                .thenReturn(List.of(addressed(8L), addressed(9L)));
 
-        SseEmitter emitter = spy(controller.stream(tokenFor("user-1"), "7", null));
+        SseEmitter emitter = spy(controller.stream(tokenFor(), "7", null));
 
         ArgumentCaptor<Limit> limit = ArgumentCaptor.forClass(Limit.class);
         verify(activities).findByRecipientIdAndIdGreaterThanOrderByIdAsc(eq("user-1"), eq(7L), limit.capture());
@@ -86,21 +105,31 @@ class ActivityStreamControllerTest {
     }
 
     @Test
-    @DisplayName("Given a Last-Event-ID that is already current, when the stream is reopened, then only the opening comment is sent")
+    @DisplayName(
+            """
+            Given a Last-Event-ID that is already current, \
+            when the stream is reopened, \
+            then only the opening comment is sent\
+            """)
     void replaysNothingWhenNothingWasMissed() {
         when(activities.findByRecipientIdAndIdGreaterThanOrderByIdAsc(eq("user-1"), eq(7L), any()))
                 .thenReturn(List.of());
 
-        controller.stream(tokenFor("user-1"), "7", null);
+        controller.stream(tokenFor(), "7", null);
 
         verify(registry, times(1))
                 .sendTo(eq("user-1"), any(SseEmitter.class), any(SseEmitter.SseEventBuilder.class));
     }
 
     @Test
-    @DisplayName("Given a malformed Last-Event-ID, when the stream is opened, then it is ignored rather than failing the request")
+    @DisplayName(
+            """
+            Given a malformed Last-Event-ID, \
+            when the stream is opened, \
+            then it is ignored rather than failing the request\
+            """)
     void ignoresAnUnparseableLastEventId() {
-        SseEmitter emitter = controller.stream(tokenFor("user-1"), "not-a-number", null);
+        SseEmitter emitter = controller.stream(tokenFor(), "not-a-number", null);
 
         assertThat(emitter).isNotNull();
         verify(activities, never()).findByRecipientIdAndIdGreaterThanOrderByIdAsc(any(), any(), any());
@@ -109,21 +138,21 @@ class ActivityStreamControllerTest {
     @Test
     @DisplayName("Given the configured timeout, when a stream is opened, then the emitter is given it")
     void appliesTheConfiguredTimeout() {
-        SseEmitter emitter = controller.stream(tokenFor("user-1"), null, null);
+        SseEmitter emitter = controller.stream(tokenFor(), null, null);
 
         assertThat(emitter.getTimeout()).isEqualTo(Duration.ofMinutes(5).toMillis());
     }
 
-    private static Jwt tokenFor(String subject) {
+    private static Jwt tokenFor() {
         return Jwt.withTokenValue("token")
                 .header("alg", "none")
-                .subject(subject)
+                .subject("user-1")
                 .claim("roles", List.of("ROLE_USER"))
                 .build();
     }
 
-    private static Activity addressed(Long id, String recipientId) {
-        return new Activity(id, "event-" + id, 1L, "TicketAssigned", "Ticket \"Fix login\" assigned to " + recipientId,
-                "actor-1", recipientId, "actor-1 assigned \"Fix login\" to you", OCCURRED_AT, OCCURRED_AT);
+    private static Activity addressed(Long id) {
+        return new Activity(id, "event-" + id, 1L, "TicketAssigned", "Ticket \"Fix login\" assigned to " + "user-1",
+                "actor-1", "user-1", "actor-1 assigned \"Fix login\" to you", OCCURRED_AT, OCCURRED_AT);
     }
 }

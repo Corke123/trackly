@@ -1,10 +1,9 @@
 package org.unibl.etf.pisio.notificationservice.repository;
 
+import java.util.List;
 import org.springframework.data.domain.Limit;
 import org.springframework.data.repository.ListCrudRepository;
 import org.unibl.etf.pisio.notificationservice.domain.Activity;
-
-import java.util.List;
 
 public interface ActivityRepository extends ListCrudRepository<Activity, Long> {
 

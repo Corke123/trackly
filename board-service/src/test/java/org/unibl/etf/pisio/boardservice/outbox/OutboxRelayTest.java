@@ -1,7 +1,17 @@
 package org.unibl.etf.pisio.boardservice.outbox;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
+
 import com.azure.messaging.servicebus.ServiceBusMessage;
 import com.azure.messaging.servicebus.ServiceBusSenderClient;
+import java.time.Instant;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -10,13 +20,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Limit;
-
-import java.time.Instant;
-import java.util.List;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class OutboxRelayTest {
@@ -42,9 +45,15 @@ class OutboxRelayTest {
     }
 
     @Test
-    @DisplayName("Given a pending outbox entry, when relay is called, then it is sent to Service Bus and marked published")
+    @DisplayName(
+            """
+            Given a pending outbox entry, \
+            when relay is called, \
+            then it is sent to Service Bus and marked published\
+            """)
     void relaySinglePendingEntry() {
-        OutboxEntry entry = new OutboxEntry(100L, "Ticket", "1", "TicketCreated", "{\"ticketId\":1}", Instant.parse("2026-07-25T10:00:00Z"), false);
+        OutboxEntry entry = new OutboxEntry(100L, "Ticket", "1", "TicketCreated",
+                "{\"ticketId\":1}", Instant.parse("2026-07-25T10:00:00Z"), false);
         when(outbox.findByPublishedFalseOrderByIdAsc(any(Limit.class))).thenReturn(List.of(entry));
 
         outboxRelay.relay();
@@ -63,10 +72,17 @@ class OutboxRelayTest {
     }
 
     @Test
-    @DisplayName("Given multiple pending outbox entries, when relay is called, then all are sent and saved as published")
+    @DisplayName(
+            """
+            Given multiple pending outbox entries, \
+            when relay is called, \
+            then all are sent and saved as published\
+            """)
     void relayMultiplePendingEntries() {
-        OutboxEntry first = new OutboxEntry(100L, "Ticket", "1", "TicketCreated", "{}", Instant.parse("2026-07-25T10:00:00Z"), false);
-        OutboxEntry second = new OutboxEntry(101L, "Ticket", "2", "TicketMoved", "{}", Instant.parse("2026-07-25T10:01:00Z"), false);
+        OutboxEntry first = new OutboxEntry(100L, "Ticket", "1", "TicketCreated",
+                "{}", Instant.parse("2026-07-25T10:00:00Z"), false);
+        OutboxEntry second = new OutboxEntry(101L, "Ticket", "2", "TicketMoved",
+                "{}", Instant.parse("2026-07-25T10:01:00Z"), false);
         when(outbox.findByPublishedFalseOrderByIdAsc(any(Limit.class))).thenReturn(List.of(first, second));
 
         outboxRelay.relay();

@@ -1,8 +1,7 @@
 package org.unibl.etf.pisio.notificationservice.stream;
 
-import org.springframework.boot.context.properties.ConfigurationProperties;
-
 import java.time.Duration;
+import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties("trackly.activity-stream")
 public record ActivityStreamProperties(Duration timeout, int replayLimit) {

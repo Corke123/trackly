@@ -1,12 +1,12 @@
 package org.unibl.etf.pisio.boardservice.repository;
 
-import org.springframework.jdbc.core.simple.JdbcClient;
-
 import java.util.List;
+import org.springframework.jdbc.core.simple.JdbcClient;
 
 class BoardRepositoryImpl implements BoardRepositoryCustom {
 
-    private static final String UPDATE_POSITION = """
+    private static final String UPDATE_POSITION =
+            """
             update swimlane
             set position = :position
             where id = :swimlaneId

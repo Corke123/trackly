@@ -47,7 +47,7 @@ public class SecurityConfig {
                 .csrf(csrfSpec -> csrfSpec
                         .csrfTokenRepository(CookieServerCsrfTokenRepository.withHttpOnlyFalse())
                         .csrfTokenRequestHandler(new ServerCsrfTokenRequestAttributeHandler()))
-                .oauth2Login(oAuth2LoginSpec -> oAuth2LoginSpec
+                .oauth2Login(loginSpec -> loginSpec
                         .authorizationRequestResolver(pkceAuthorizationRequestResolver(clientRegistrations)))
                 .oauth2Client(Customizer.withDefaults())
                 .logout(logoutSpec -> logoutSpec.logoutSuccessHandler(oidcLogoutSuccessHandler(clientRegistrations)));
