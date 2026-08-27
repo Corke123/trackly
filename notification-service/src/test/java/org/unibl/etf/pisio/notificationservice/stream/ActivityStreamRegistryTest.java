@@ -121,6 +121,53 @@ class ActivityStreamRegistryTest {
     }
 
     @Test
+    @DisplayName(
+            """
+            Given listeners of several recipients, \
+            when a change is broadcast, \
+            then every one of them receives it\
+            """)
+    void broadcastsToEveryRecipient() throws IOException {
+        SseEmitter mine = mock(SseEmitter.class);
+        SseEmitter theirs = mock(SseEmitter.class);
+        registry.register("user-1", mine);
+        registry.register("user-2", theirs);
+
+        registry.broadcast(SseEmitter.event().data("the board changed"));
+
+        verify(mine).send(any(SseEmitter.SseEventBuilder.class));
+        verify(theirs).send(any(SseEmitter.SseEventBuilder.class));
+    }
+
+    @Test
+    @DisplayName("Given nobody connected, when a change is broadcast, then nothing happens")
+    void broadcastingToNobodyIsHarmless() {
+        registry.broadcast(SseEmitter.event().data("the board changed"));
+
+        assertThat(registry.emittersFor("user-nobody")).isEmpty();
+    }
+
+    @Test
+    @DisplayName(
+            """
+            Given a connection that has gone away, \
+            when a change is broadcast, \
+            then the live ones still receive it\
+            """)
+    void broadcastSurvivesBrokenConnections() throws IOException {
+        SseEmitter broken = mock(SseEmitter.class);
+        SseEmitter healthy = mock(SseEmitter.class);
+        doThrow(new IOException("broken pipe")).when(broken).send(any(SseEmitter.SseEventBuilder.class));
+        registry.register("user-1", broken);
+        registry.register("user-2", healthy);
+
+        registry.broadcast(SseEmitter.event().data("the board changed"));
+
+        verify(healthy).send(any(SseEmitter.SseEventBuilder.class));
+        assertThat(registry.emittersFor("user-1")).isEmpty();
+    }
+
+    @Test
     @DisplayName("Given open connections, when the heartbeat runs, then each one is written to")
     void heartbeatKeepsConnectionsAlive() throws IOException {
         SseEmitter first = mock(SseEmitter.class);

@@ -146,6 +146,11 @@ export class FakeActivityStream {
     this.queued.push(`id: ${id}\nevent: activity\ndata: ${JSON.stringify(notification)}\n\n`);
   }
 
+  pushBoardChange(type = 'TicketMoved', actorId = 'admin'): void {
+    const change = { boardId: 1, type, actorId, occurredAt: new Date().toISOString() };
+    this.queued.push(`event: board-changed\ndata: ${JSON.stringify(change)}\n\n`);
+  }
+
   drain(): string {
     const body = ['retry: 300\n\n', ...this.queued].join('');
     this.queued = [];

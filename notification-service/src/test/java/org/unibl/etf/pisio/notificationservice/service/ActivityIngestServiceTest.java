@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.argThat;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -13,6 +14,7 @@ import static org.mockito.Mockito.when;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -107,7 +109,7 @@ class ActivityIngestServiceTest {
         ingestAt(() -> activityIngestService.ingest("event-2", TicketMoved.TYPE, payload));
 
         verify(activities).save(recipientOf());
-        verifyNoInteractions(events);
+        verifyBoardChangedOnly();
     }
 
     @Test
@@ -148,7 +150,7 @@ class ActivityIngestServiceTest {
         ingestAt(() -> activityIngestService.ingest("event-3", TicketAssigned.TYPE, payload));
 
         verify(activities).save(recipientOf());
-        verifyNoInteractions(events);
+        verifyBoardChangedOnly();
     }
 
     @Test
@@ -168,7 +170,7 @@ class ActivityIngestServiceTest {
         ingestAt(() -> activityIngestService.ingest("event-2", TicketMoved.TYPE, payload));
 
         verify(activities).save(recipientOf());
-        verifyNoInteractions(events);
+        verifyBoardChangedOnly();
     }
 
     @Test
@@ -187,10 +189,29 @@ class ActivityIngestServiceTest {
 
         ingestAt(() -> activityIngestService.ingest("event-3", TicketAssigned.TYPE, payload));
 
-        ArgumentCaptor<ActivityRecorded> announced = ArgumentCaptor.forClass(ActivityRecorded.class);
-        verify(events).publishEvent(announced.capture());
-        assertThat(announced.getValue().activity().id()).isEqualTo(42L);
-        assertThat(announced.getValue().activity().recipientId()).isEqualTo("user-2");
+        Activity announced = published(ActivityRecorded.class).activity();
+        assertThat(announced.id()).isEqualTo(42L);
+        assertThat(announced.recipientId()).isEqualTo("user-2");
+    }
+
+    @Test
+    @DisplayName(
+            """
+            Given an event nobody is notified about, \
+            when ingest is called, \
+            then the board change is still announced, carrying who changed what\
+            """)
+    void ingestAnnouncesEveryBoardChange() {
+        String payload = "{\"ticketId\":100}";
+        TicketCreated event = new TicketCreated(100L, 1L, 2L, "Title", "actor-1", OCCURRED_AT);
+        when(activities.existsByEventId("event-1")).thenReturn(false);
+        when(objectMapper.readValue(payload, TicketCreated.class)).thenReturn(event);
+        echoSaves();
+
+        ingestAt(() -> activityIngestService.ingest("event-1", TicketCreated.TYPE, payload));
+
+        assertThat(published(BoardChanged.class))
+                .isEqualTo(new BoardChanged(1L, TicketCreated.TYPE, "actor-1", OCCURRED_AT));
     }
 
     @Test
@@ -309,7 +330,7 @@ class ActivityIngestServiceTest {
         ingestAt(() -> activityIngestService.ingest("event-4", TicketDeleted.TYPE, payload));
 
         verify(activities).save(recipientOf());
-        verifyNoInteractions(events);
+        verifyBoardChangedOnly();
     }
 
     @Test
@@ -350,6 +371,24 @@ class ActivityIngestServiceTest {
 
         verify(activities, never()).save(any());
         verifyNoInteractions(events);
+    }
+
+    private void verifyBoardChangedOnly() {
+        assertThat(publishedEvents()).hasExactlyElementsOfTypes(BoardChanged.class);
+    }
+
+    private <T> T published(Class<T> type) {
+        return publishedEvents().stream()
+                .filter(type::isInstance)
+                .map(type::cast)
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("No " + type.getSimpleName() + " was published"));
+    }
+
+    private List<Object> publishedEvents() {
+        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+        verify(events, atLeastOnce()).publishEvent(captor.capture());
+        return captor.getAllValues();
     }
 
     private void echoSaves() {

@@ -2,13 +2,14 @@ import { TestBed } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   ACTIVITY_EVENT,
+  BOARD_CHANGED_EVENT,
   ActivityStreamService,
   EVENT_SOURCE_FACTORY,
   RECONNECT_MAX_DELAY,
   RECONNECT_MIN_DELAY,
 } from './activity-stream.service';
 import { API_BASE_URL } from './api.config';
-import { ActivityNotification } from './board.models';
+import { ActivityNotification, BoardChange } from './board.models';
 
 describe('ActivityStreamService', () => {
   let opened: FakeEventSource[];
@@ -95,6 +96,58 @@ describe('ActivityStreamService', () => {
     expect(seen.map((entry) => entry.id)).toEqual([3]);
   });
 
+  it('emits the board changes that arrive on the stream', () => {
+    const service = connect();
+    const seen = changesOf(service);
+
+    opened[0].emit(BOARD_CHANGED_EVENT, boardChange({ actorId: 'user' }));
+
+    expect(seen).toHaveLength(1);
+    expect(seen[0].actorId).toBe('user');
+  });
+
+  it('drops a frame that is not a board change rather than throwing', () => {
+    const service = connect();
+    const seen = changesOf(service);
+
+    opened[0].emit(BOARD_CHANGED_EVENT, 'not json at all');
+    opened[0].emit(BOARD_CHANGED_EVENT, JSON.stringify({ unexpected: true }));
+    opened[0].emit(BOARD_CHANGED_EVENT, boardChange({ boardId: 3 }));
+
+    expect(seen.map((entry) => entry.boardId)).toEqual([3]);
+  });
+
+  it('never resumes from a board change, which carries no id of its own', () => {
+    connect();
+    opened[0].emit(BOARD_CHANGED_EVENT, boardChange({}));
+
+    fail(opened[0]);
+    vi.advanceTimersByTime(RECONNECT_MIN_DELAY);
+
+    expect(opened[1].url).toBe('/api/activity/stream');
+  });
+
+  it('says nothing about the first time the stream opens', () => {
+    const service = connect();
+    const reconnects = reconnectsOf(service);
+
+    opened[0].emit('open', '');
+
+    expect(reconnects).toHaveLength(0);
+  });
+
+  it('reports a stream that opened again, since board changes are not replayed', () => {
+    const service = connect();
+    const reconnects = reconnectsOf(service);
+
+    opened[0].emit('open', '');
+    fail(opened[0]);
+    vi.advanceTimersByTime(RECONNECT_MIN_DELAY);
+    opened[1].emit('open', '');
+
+    expect(reconnects).toHaveLength(1);
+  });
+
   it('leaves a stream the browser is retrying by itself alone', () => {
     connect();
 
@@ -154,6 +207,18 @@ describe('ActivityStreamService', () => {
     expect(opened[0].closed).toBe(true);
   });
 
+  function changesOf(service: ActivityStreamService): BoardChange[] {
+    const seen: BoardChange[] = [];
+    service.boardChanges.subscribe((change) => seen.push(change));
+    return seen;
+  }
+
+  function reconnectsOf(service: ActivityStreamService): unknown[] {
+    const seen: unknown[] = [];
+    service.reconnects.subscribe(() => seen.push(true));
+    return seen;
+  }
+
   function fail(source: FakeEventSource): void {
     source.readyState = FakeEventSource.CLOSED;
     source.emit('error', '');
@@ -166,6 +231,16 @@ function notification(overrides: Partial<ActivityNotification>): string {
     boardId: 1,
     type: 'TicketAssigned',
     message: 'admin assigned "Fix login" to you',
+    actorId: 'admin',
+    occurredAt: '2026-07-25T10:00:00Z',
+    ...overrides,
+  });
+}
+
+function boardChange(overrides: Partial<BoardChange>): string {
+  return JSON.stringify({
+    boardId: 1,
+    type: 'TicketMoved',
     actorId: 'admin',
     occurredAt: '2026-07-25T10:00:00Z',
     ...overrides,

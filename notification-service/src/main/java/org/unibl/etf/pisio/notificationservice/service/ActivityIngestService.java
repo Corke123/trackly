@@ -53,6 +53,8 @@ public class ActivityIngestService {
                     event.occurredAt()
             ));
 
+            events.publishEvent(BoardChanged.of(saved));
+
             if (saved.isAddressed()) {
                 events.publishEvent(new ActivityRecorded(saved));
             }
