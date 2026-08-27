@@ -39,9 +39,17 @@ never addressed to the user who caused it.
 _Avoid_: target, subscriber, watcher.
 
 **Activity stream**:
-The live channel that delivers a user the Activities addressed to them, as they are
-recorded. One stream per signed-in user; a user only ever receives their own.
+The live channel a signed-in user holds open. It delivers the Activities addressed to them,
+as they are recorded — a user only ever receives their own — and the Board changes, which
+everybody connected receives.
 _Avoid_: feed (that is the Activity list), socket, channel.
+
+**Board change**:
+The announcement that somebody changed the board, derived from the same Domain event as an
+Activity but addressed to nobody. It says that the board changed and who changed it, never
+what it now looks like: a board on screen answers one by asking board-service for the board
+again.
+_Avoid_: refresh, update, sync.
 
 ## Cross-cutting
 

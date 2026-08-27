@@ -35,3 +35,8 @@ recipient is taken from that token rather than from the request.
   duplicating it in TypeScript would let the two drift.
 - Each open stream holds a server thread for as long as it lasts, so connections carry a
   timeout and the browser is left to reconnect rather than being held indefinitely.
+
+> **Amended by [ADR 0026](0026-board-changes-on-the-activity-stream.md).** The stream is no longer
+> only per-recipient: alongside the activities addressed to one user it now carries `board-changed`,
+> broadcast to everybody connected so that a board on screen catches up with what other people do to
+> it. The replay contract above is untouched — a board change carries no event id.
