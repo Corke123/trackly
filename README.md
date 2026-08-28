@@ -28,13 +28,19 @@ There are two kinds of **User**, told apart by the `roles` claim in their token:
 | Rename the board                  | ✅                                          | —                  |
 | Add, reorder and delete swimlanes | ✅ (a lane still holding tickets cannot go) | —                  |
 | Create, assign and move tickets   | ✅                                          | ✅                 |
+| Comment on a ticket               | ✅                                          | ✅                 |
+| Delete a comment                  | ✅ (anybody's)                              | ✅ (their own)     |
 
 The distinction is enforced in board-service with `@PreAuthorize` on the admin-only endpoints, not
 merely hidden in the client: the SPA renders the controls a role can actually use, and the service
 answers 403 to the rest either way.
 
-Either kind of user is told, while they are on the board, when somebody **assigns them a ticket** or
-**moves a ticket assigned to them** — a snackbar in the top-right corner. The board event travels
+Either kind of user may open a ticket to read and add **comments**. A comment is never edited — a correction is
+another comment — and it is removed by whoever wrote it, or by an admin.
+
+Either kind of user is told, while they are on the board, when somebody **assigns them a ticket**,
+**moves a ticket assigned to them** or **comments on a ticket assigned to them** — a snackbar in the
+top-right corner. The board event travels
 board-service → Service Bus → notification-service, which addresses it to a single recipient and
 pushes it down that user's server-sent activity stream (ADR 0011). You are never notified of your
 own doing.
@@ -400,11 +406,13 @@ identity-service with PKCE, and `/api/**` reaches the resource servers with a re
 holds only a session cookie. Steps that require an Azure subscription or the live GitHub repository (the OIDC exchange,
 the actual deploys) are documented above and must be run in your environment.
 
-The client's own suites run green: 118 Vitest unit tests over the store, services and components, and 22 Playwright
-journeys covering both roles — including swimlane and ticket drag-and-drop, a rejected move rolling back, and a live
-notification arriving as a snackbar. The board, notification, gateway and identity services pass `./mvnw verify` with
+The client's own suites run green: 162 Vitest unit tests over the store, services and components, and 31 Playwright
+journeys covering both roles — including swimlane and ticket drag-and-drop, a rejected move rolling back, a live
+notification arriving as a snackbar, and a comment thread picking up what somebody else wrote. The board, notification, gateway and identity services pass `./mvnw verify` with
 their coverage gates intact.
 
 The two roles have also been driven against the Compose stack (`npm run e2e:stack`): `admin` signs in with PKCE, renames
 the board, adds a swimlane and creates an assigned ticket, all of which survive a reload; `user` is offered none of those
-controls, and reaching for `PATCH /api/boards/1` with that session comes back **403** from board-service.
+controls, and reaching for `PATCH /api/boards/1` with that session comes back **403** from board-service. A third
+scenario leaves a comment on a ticket, proves it survives a reload, and deletes the ticket to prove the thread goes
+with it.
