@@ -26,6 +26,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 import org.unibl.etf.pisio.notificationservice.domain.Activity;
 import org.unibl.etf.pisio.notificationservice.domain.event.TicketAssigned;
+import org.unibl.etf.pisio.notificationservice.domain.event.TicketCommented;
 import org.unibl.etf.pisio.notificationservice.domain.event.TicketCreated;
 import org.unibl.etf.pisio.notificationservice.domain.event.TicketDeleted;
 import org.unibl.etf.pisio.notificationservice.domain.event.TicketMoved;
@@ -411,5 +412,71 @@ class ActivityIngestServiceTest {
             instant.when(Instant::now).thenReturn(ActivityIngestServiceTest.RECORDED_AT);
             ingest.run();
         }
+    }
+
+    @Test
+    @DisplayName(
+            """
+            Given a TicketCommented event on somebody else's ticket, \
+            when ingest is called, \
+            then the activity is addressed to the assignee\
+            """)
+    void ingestTicketCommented() {
+        String payload = "{\"ticketId\":100}";
+        TicketCommented event =
+                new TicketCommented(100L, 1L, 500L, "Fix login", "user-2", "actor-1", OCCURRED_AT);
+        when(activities.existsByEventId("event-6")).thenReturn(false);
+        when(objectMapper.readValue(payload, TicketCommented.class)).thenReturn(event);
+        echoSaves();
+
+        ingestAt(() -> activityIngestService.ingest("event-6", TicketCommented.TYPE, payload));
+
+        verify(activities).save(new Activity(null, "event-6", 1L, TicketCommented.TYPE,
+                "Ticket \"Fix login\" commented on by actor-1", "actor-1",
+                "user-2", "actor-1 commented on your ticket \"Fix login\"", OCCURRED_AT, RECORDED_AT));
+    }
+
+    @Test
+    @DisplayName(
+            """
+            Given a TicketCommented event on the commenter's own ticket, \
+            when ingest is called, \
+            then the activity is addressed to nobody\
+            """)
+    void ingestTicketCommentedOnOwnTicket() {
+        String payload = "{\"ticketId\":100}";
+        TicketCommented event =
+                new TicketCommented(100L, 1L, 500L, "Fix login", "actor-1", "actor-1", OCCURRED_AT);
+        when(activities.existsByEventId("event-7")).thenReturn(false);
+        when(objectMapper.readValue(payload, TicketCommented.class)).thenReturn(event);
+        echoSaves();
+
+        ingestAt(() -> activityIngestService.ingest("event-7", TicketCommented.TYPE, payload));
+
+        verify(activities).save(new Activity(null, "event-7", 1L, TicketCommented.TYPE,
+                "Ticket \"Fix login\" commented on by actor-1", "actor-1",
+                null, null, OCCURRED_AT, RECORDED_AT));
+    }
+
+    @Test
+    @DisplayName(
+            """
+            Given a TicketCommented event on an unassigned ticket, \
+            when ingest is called, \
+            then the activity is addressed to nobody\
+            """)
+    void ingestTicketCommentedOnUnassignedTicket() {
+        String payload = "{\"ticketId\":100}";
+        TicketCommented event =
+                new TicketCommented(100L, 1L, 500L, "Fix login", null, "actor-1", OCCURRED_AT);
+        when(activities.existsByEventId("event-8")).thenReturn(false);
+        when(objectMapper.readValue(payload, TicketCommented.class)).thenReturn(event);
+        echoSaves();
+
+        ingestAt(() -> activityIngestService.ingest("event-8", TicketCommented.TYPE, payload));
+
+        verify(activities).save(new Activity(null, "event-8", 1L, TicketCommented.TYPE,
+                "Ticket \"Fix login\" commented on by actor-1", "actor-1",
+                null, null, OCCURRED_AT, RECORDED_AT));
     }
 }
