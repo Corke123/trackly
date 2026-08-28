@@ -3,9 +3,13 @@ package org.unibl.etf.pisio.boardservice.integration;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.tuple;
 import static org.unibl.etf.pisio.boardservice.integration.BoardIntegrationTestSupport.addSwimlane;
+import static org.unibl.etf.pisio.boardservice.integration.BoardIntegrationTestSupport.awaitEvent;
 import static org.unibl.etf.pisio.boardservice.integration.BoardIntegrationTestSupport.createBoard;
 import static org.unibl.etf.pisio.boardservice.integration.BoardIntegrationTestSupport.createTicket;
 
+import com.azure.messaging.servicebus.ServiceBusReceivedMessage;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -18,6 +22,8 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.client.RestTestClient;
 import org.unibl.etf.pisio.boardservice.controller.dto.CommentView;
 import org.unibl.etf.pisio.boardservice.controller.dto.Requests.PostComment;
+import org.unibl.etf.pisio.boardservice.controller.dto.Requests.UpdateTicket;
+import org.unibl.etf.pisio.boardservice.integration.ServiceBusTestSupportConfig.BoardEventTestReceiver;
 import org.unibl.etf.pisio.boardservice.repository.CommentRepository;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -37,6 +43,11 @@ class CommentControllerIntegrationTest {
 
     @Autowired
     private CommentRepository commentRepository;
+
+    @Autowired
+    private BoardEventTestReceiver eventReceiver;
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Test
     @DisplayName(
@@ -136,6 +147,35 @@ class CommentControllerIntegrationTest {
                 .expectStatus().isNoContent();
 
         assertThat(commentRepository.findByTicketIdOrderByCreatedAtAscIdAsc(ticketId)).isEmpty();
+    }
+
+    @Test
+    @DisplayName(
+            """
+            Given an assigned ticket, \
+            when a comment is posted on it, \
+            then a TicketCommented event reaches the topic carrying the assignee and the author\
+            """)
+    void postingCommentPublishesTicketCommented() throws Exception {
+        Long boardId = createBoard(restTestClient, "Board");
+        Long swimlaneId = addSwimlane(restTestClient, boardId, "To Do");
+        Long ticketId = createTicket(restTestClient, boardId, swimlaneId, "Write tests", "Cover the happy paths");
+        restTestClient.patch()
+                .uri("/tickets/{ticketId}", ticketId)
+                .body(new UpdateTicket(null, null, "user-1"))
+                .exchange()
+                .expectStatus().isOk();
+
+        Long commentId = postComment(userRestTestClient, ticketId, "Blocked on the gateway route");
+
+        ServiceBusReceivedMessage event = awaitEvent(eventReceiver, "TicketCommented", ticketId);
+        JsonNode payload = objectMapper.readTree(event.getBody().toString());
+        assertThat(payload.get("ticketId").asLong()).isEqualTo(ticketId);
+        assertThat(payload.get("boardId").asLong()).isEqualTo(boardId);
+        assertThat(payload.get("commentId").asLong()).isEqualTo(commentId);
+        assertThat(payload.get("title").asText()).isEqualTo("Write tests");
+        assertThat(payload.get("assigneeId").asText()).isEqualTo("user-1");
+        assertThat(payload.get("actorId").asText()).isEqualTo("demo");
     }
 
     private Long createTicketOnNewBoard() {

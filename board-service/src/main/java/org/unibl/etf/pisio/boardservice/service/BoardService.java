@@ -13,6 +13,7 @@ import org.unibl.etf.pisio.boardservice.domain.Comment;
 import org.unibl.etf.pisio.boardservice.domain.Swimlane;
 import org.unibl.etf.pisio.boardservice.domain.Ticket;
 import org.unibl.etf.pisio.boardservice.domain.event.TicketAssigned;
+import org.unibl.etf.pisio.boardservice.domain.event.TicketCommented;
 import org.unibl.etf.pisio.boardservice.domain.event.TicketCreated;
 import org.unibl.etf.pisio.boardservice.domain.event.TicketDeleted;
 import org.unibl.etf.pisio.boardservice.domain.event.TicketMoved;
@@ -189,8 +190,12 @@ public class BoardService {
     }
 
     public Comment postComment(Long ticketId, String body, String authorId) {
-        requireTicket(ticketId);
-        return commentRepository.save(new Comment(ticketId, authorId, body));
+        Ticket ticket = requireTicket(ticketId);
+        Comment comment = commentRepository.save(new Comment(ticketId, authorId, body));
+
+        publisher.publish(new TicketCommented(ticketId, ticket.boardId(), comment.id(), ticket.title(),
+                ticket.assigneeId(), authorId, Instant.now()));
+        return comment;
     }
 
     public void deleteComment(Long ticketId, Long commentId, String actorId, boolean actorIsAdmin) {

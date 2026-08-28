@@ -27,6 +27,7 @@ import org.unibl.etf.pisio.boardservice.domain.Comment;
 import org.unibl.etf.pisio.boardservice.domain.Swimlane;
 import org.unibl.etf.pisio.boardservice.domain.Ticket;
 import org.unibl.etf.pisio.boardservice.domain.event.TicketAssigned;
+import org.unibl.etf.pisio.boardservice.domain.event.TicketCommented;
 import org.unibl.etf.pisio.boardservice.domain.event.TicketCreated;
 import org.unibl.etf.pisio.boardservice.domain.event.TicketDeleted;
 import org.unibl.etf.pisio.boardservice.domain.event.TicketMoved;
@@ -717,7 +718,7 @@ class BoardServiceTest {
             """
             Given an existing ticket and a body, \
             when postComment is called, \
-            then the comment is persisted against that ticket and attributed to the actor\
+            then the comment is persisted, attributed to the actor, and a TicketCommented event is published\
             """)
     void postComment() {
         Instant fixedNow = Instant.parse("2026-08-28T09:15:00Z");
@@ -734,6 +735,31 @@ class BoardServiceTest {
 
         assertThat(result).isEqualTo(saved);
         verify(commentRepository).save(new Comment(null, 100L, "demo", "Blocked on the gateway route", fixedNow));
+        verify(publisher).publish(
+                new TicketCommented(100L, 1L, 500L, "Wire up the pipeline", null, "demo", fixedNow));
+    }
+
+    @Test
+    @DisplayName(
+            """
+            Given a comment on an assigned ticket, \
+            when postComment is called, \
+            then the published event carries the assignee so the notification context can address it\
+            """)
+    void postCommentOnAnAssignedTicketNamesTheAssignee() {
+        Instant fixedNow = Instant.parse("2026-08-28T09:15:00Z");
+        Ticket ticket = new Ticket(100L, 1L, 10L, "Wire up the pipeline", null, "user", 0, null);
+        when(ticketRepository.findById(100L)).thenReturn(Optional.of(ticket));
+        when(commentRepository.save(any(Comment.class)))
+                .thenReturn(new Comment(500L, 100L, "demo", "Looks done to me", fixedNow));
+
+        try (MockedStatic<Instant> instant = mockStatic(Instant.class, CALLS_REAL_METHODS)) {
+            instant.when(Instant::now).thenReturn(fixedNow);
+            boardService.postComment(100L, "Looks done to me", "demo");
+        }
+
+        verify(publisher).publish(
+                new TicketCommented(100L, 1L, 500L, "Wire up the pipeline", "user", "demo", fixedNow));
     }
 
     @Test
@@ -749,6 +775,7 @@ class BoardServiceTest {
         assertThrows(TicketNotFoundException.class, () -> boardService.postComment(404L, "Hello", "demo"));
 
         verifyNoInteractions(commentRepository);
+        verifyNoInteractions(publisher);
     }
 
     @Test
