@@ -95,9 +95,9 @@ bearing rather than decorative.
 
 ## Consequences
 
-- The three action types of Ch 5.1.4 are now all present in one repository — four composite actions, one
-  JavaScript action (ADR 0020) and one container action — chosen for their actual properties rather than
-  for completeness. That is what makes them comparable in the thesis's practical chapter.
+- Two of the three action types of Ch 5.1.4 are present in one repository — four composite actions and one
+  container action — chosen for their actual properties rather than for completeness. That is what makes
+  them comparable in the thesis's practical chapter.
 - Adding a fifth service now fails the pull request until it is wired in, with a message naming the file.
 - The checker's thresholds are inputs, so tightening the coverage floor is a one-line change in `ci.yaml`
   rather than an edit to four POMs and the checker.
