@@ -11,6 +11,7 @@ import { BoardStore } from '../core/board.store';
 import { ConfirmDialog, ConfirmData } from './dialogs/confirm.dialog';
 import { AssignTicketDialog, AssignTicketData } from './dialogs/assign-ticket.dialog';
 import { TextPromptData, TextPromptDialog } from './dialogs/text-prompt.dialog';
+import { TicketDetailData, TicketDetailDialog } from './dialogs/ticket-detail.dialog';
 import { TicketFormData, TicketFormDialog, TicketFormResult } from './dialogs/ticket-form.dialog';
 import { SwimlaneColumn, TicketDrop } from './swimlane-column';
 
@@ -97,6 +98,14 @@ export class BoardPage {
         await this.store.assignTicket(created.id, result.assigneeId);
       }
     }
+  }
+
+  protected openTicket(ticket: Ticket): void {
+    const data: TicketDetailData = { ticket };
+    this.dialog.open<TicketDetailDialog, TicketDetailData, void>(TicketDetailDialog, {
+      data,
+      autoFocus: '[data-testid="comment-input"]',
+    });
   }
 
   protected async assignTicket(ticket: Ticket): Promise<void> {

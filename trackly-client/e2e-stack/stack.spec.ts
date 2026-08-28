@@ -94,6 +94,44 @@ test('a plain user gets no admin controls, and the service refuses them anyway',
   await expect(ticketCard(page, ticketTitle)).toHaveCount(0);
 });
 
+test('a comment survives a reload and goes with its ticket', async ({ page }) => {
+  const runId = Date.now().toString(36);
+  const ticketTitle = `Comment smoke test ${runId}`;
+  const body = `Posted by the acceptance suite at ${new Date().toISOString()}`;
+
+  await signIn(page, 'admin', 'admin');
+
+  await page.locator('[data-testid^="add-ticket-"]').first().click();
+  await page.getByRole('dialog').getByTestId('ticket-title').fill(ticketTitle);
+  await page.getByRole('dialog').getByTestId('ticket-submit').click();
+  await expect(ticketCard(page, ticketTitle)).toBeVisible({ timeout: 20_000 });
+
+  await settle(page);
+  await openThread(page, ticketTitle);
+  await page.getByRole('dialog').getByTestId('comment-input').last().fill(body);
+  await page.getByRole('dialog').getByTestId('comment-submit').last().click();
+  await expect(page.getByRole('dialog').getByTestId('ticket-detail').last()).toContainText(body, {
+    timeout: 20_000,
+  });
+
+  // A reload is what separates a persisted comment from an optimistic one.
+  await page.getByRole('dialog').getByTestId('ticket-detail-close').last().click();
+  await page.reload();
+  await expect(page.getByTestId('board')).toBeVisible({ timeout: 60_000 });
+  await settle(page);
+  await openThread(page, ticketTitle);
+  await expect(page.getByRole('dialog').getByTestId('ticket-detail').last()).toContainText(body);
+  await page.getByRole('dialog').getByTestId('ticket-detail-close').last().click();
+
+  await settle(page);
+  await deleteTicket(page, ticketTitle);
+  await expect(ticketCard(page, ticketTitle)).toHaveCount(0, { timeout: 20_000 });
+
+  await page.reload();
+  await expect(page.getByTestId('board')).toBeVisible({ timeout: 60_000 });
+  await expect(ticketCard(page, ticketTitle)).toHaveCount(0);
+});
+
 /**
  * The real sign-in: identity-service's form login, then the consent screen the authorization server
  * shows the first time an account approves the `trackly` client. Consent is remembered afterwards,
@@ -132,6 +170,16 @@ function ticketCard(page: Page, title: string) {
 
 function swimlane(page: Page, title: string) {
   return page.getByRole('region', { name: `${title} swimlane` });
+}
+
+async function openThread(page: Page, title: string): Promise<void> {
+  await ticketCard(page, title)
+    .getByRole('button', { name: `Actions for ${title}` })
+    .click();
+  await page.getByRole('menuitem', { name: 'Comments…' }).click();
+  await expect(page.getByRole('dialog').getByTestId('ticket-detail').last()).toBeVisible({
+    timeout: 20_000,
+  });
 }
 
 async function deleteTicket(page: Page, title: string): Promise<void> {

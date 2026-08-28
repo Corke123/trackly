@@ -12,6 +12,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.unibl.etf.pisio.notificationservice.domain.Activity;
 import org.unibl.etf.pisio.notificationservice.domain.event.TicketAssigned;
+import org.unibl.etf.pisio.notificationservice.domain.event.TicketCommented;
 import org.unibl.etf.pisio.notificationservice.domain.event.TicketCreated;
 import org.unibl.etf.pisio.notificationservice.domain.event.TicketMoved;
 import org.unibl.etf.pisio.notificationservice.integration.ServiceBusTestSupportConfig.BoardEventTestPublisher;
@@ -91,6 +92,28 @@ class BoardEventSubscriptionIntegrationTest {
         assertThat(activity.actorId()).isEqualTo("actor-3");
         assertThat(activity.recipientId()).isEqualTo("assignee-9");
         assertThat(activity.recipientMessage()).isEqualTo("actor-3 assigned \"Fix login\" to you");
+        assertThat(activity.occurredAt()).isEqualTo(OCCURRED_AT);
+    }
+
+    @Test
+    @DisplayName(
+            """
+            Given a TicketCommented event on the topic, \
+            when the subscription reads it, \
+            then the activity is recorded and addressed to the ticket's assignee\
+            """)
+    void readsTicketCommentedEvent() {
+        publisher.publish("sub-4",
+                new TicketCommented(103L, 4L, 500L, "Fix login", "assignee-9", "actor-4", OCCURRED_AT));
+
+        Activity activity = awaitActivity(activityRepository, 4L, TicketCommented.TYPE);
+
+        assertThat(activity.eventId()).isEqualTo("sub-4");
+        assertThat(activity.boardId()).isEqualTo(4L);
+        assertThat(activity.summary()).isEqualTo("Ticket \"Fix login\" commented on by actor-4");
+        assertThat(activity.actorId()).isEqualTo("actor-4");
+        assertThat(activity.recipientId()).isEqualTo("assignee-9");
+        assertThat(activity.recipientMessage()).isEqualTo("actor-4 commented on your ticket \"Fix login\"");
         assertThat(activity.occurredAt()).isEqualTo(OCCURRED_AT);
     }
 }

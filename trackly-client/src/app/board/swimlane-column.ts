@@ -53,6 +53,8 @@ export class SwimlaneColumn {
 
   readonly moveSwimlaneRight = output<Swimlane>();
 
+  readonly openTicket = output<Ticket>();
+
   readonly assignTicket = output<Ticket>();
 
   readonly deleteTicket = output<Ticket>();

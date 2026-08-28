@@ -54,6 +54,7 @@
         [ticket]="ticket"
         [otherSwimlanes]="otherSwimlanes()"
         [isAdmin]="isAdmin()"
+        (open)="openTicket.emit($event)"
         (assign)="assignTicket.emit($event)"
         (delete)="deleteTicket.emit($event)"
         (move)="onMoveRequested($event)"

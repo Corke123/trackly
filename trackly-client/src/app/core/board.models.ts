@@ -11,6 +11,15 @@ export interface Ticket {
   readonly position: number;
 }
 
+/** A remark a user left on a Ticket. Never edited; a correction is another Comment. */
+export interface Comment {
+  readonly id: number;
+  readonly ticketId: number;
+  readonly authorId: string;
+  readonly body: string;
+  readonly createdAt: string;
+}
+
 export interface Swimlane {
   readonly id: number;
   readonly title: string;

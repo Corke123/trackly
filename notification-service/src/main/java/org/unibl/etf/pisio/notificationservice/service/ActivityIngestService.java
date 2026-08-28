@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.unibl.etf.pisio.notificationservice.domain.Activity;
 import org.unibl.etf.pisio.notificationservice.domain.event.BoardEvent;
 import org.unibl.etf.pisio.notificationservice.domain.event.TicketAssigned;
+import org.unibl.etf.pisio.notificationservice.domain.event.TicketCommented;
 import org.unibl.etf.pisio.notificationservice.domain.event.TicketCreated;
 import org.unibl.etf.pisio.notificationservice.domain.event.TicketDeleted;
 import org.unibl.etf.pisio.notificationservice.domain.event.TicketMoved;
@@ -70,6 +71,7 @@ public class ActivityIngestService {
             case TicketCreated.TYPE -> objectMapper.readValue(payload, TicketCreated.class);
             case TicketMoved.TYPE -> objectMapper.readValue(payload, TicketMoved.class);
             case TicketAssigned.TYPE -> objectMapper.readValue(payload, TicketAssigned.class);
+            case TicketCommented.TYPE -> objectMapper.readValue(payload, TicketCommented.class);
             case TicketDeleted.TYPE -> objectMapper.readValue(payload, TicketDeleted.class);
             default -> throw new IllegalArgumentException("Unknown event type: " + eventType);
         };
@@ -87,6 +89,8 @@ public class ActivityIngestService {
                     e.actorId(), ticketName(e.ticketId(), e.title()),
                     swimlaneName(e.toSwimlaneId(), e.toSwimlaneTitle())));
             case TicketAssigned e -> to(e.assigneeId(), e, "%s assigned %s to you".formatted(
+                    e.actorId(), ticketName(e.ticketId(), e.title())));
+            case TicketCommented e -> to(e.assigneeId(), e, "%s commented on your ticket %s".formatted(
                     e.actorId(), ticketName(e.ticketId(), e.title())));
             case TicketDeleted e -> to(e.assigneeId(), e, "%s deleted your ticket %s".formatted(
                     e.actorId(), ticketName(e.ticketId(), e.title())));
@@ -106,6 +110,8 @@ public class ActivityIngestService {
                     swimlaneName(e.toSwimlaneId(), e.toSwimlaneTitle()));
             case TicketAssigned e -> "Ticket %s assigned to %s".formatted(ticketName(e.ticketId(), e.title()),
                     e.assigneeId());
+            case TicketCommented e -> "Ticket %s commented on by %s".formatted(
+                    ticketName(e.ticketId(), e.title()), e.actorId());
             case TicketDeleted e -> "Ticket %s deleted from %s".formatted(ticketName(e.ticketId(), e.title()),
                     swimlaneName(e.swimlaneId(), e.swimlaneTitle()));
         };

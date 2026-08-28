@@ -1,4 +1,4 @@
-import { Board, CurrentUser, Swimlane, Ticket, User } from '../app/core/board.models';
+import { Board, Comment, CurrentUser, Swimlane, Ticket, User } from '../app/core/board.models';
 
 export function aTicket(overrides: Partial<Ticket> = {}): Ticket {
   return {
@@ -7,6 +7,17 @@ export function aTicket(overrides: Partial<Ticket> = {}): Ticket {
     description: 'Cover the happy paths',
     assigneeId: null,
     position: 0,
+    ...overrides,
+  };
+}
+
+export function aComment(overrides: Partial<Comment> = {}): Comment {
+  return {
+    id: 500,
+    ticketId: 100,
+    authorId: 'demo',
+    body: 'Blocked on the gateway route',
+    createdAt: '2026-08-28T09:15:00Z',
     ...overrides,
   };
 }

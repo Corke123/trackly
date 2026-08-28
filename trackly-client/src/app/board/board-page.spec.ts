@@ -9,6 +9,7 @@ import { aBoard, someUsers } from '../../testing/board.fixtures';
 import { AuthService } from '../core/auth.service';
 import { BoardStore } from '../core/board.store';
 import { BoardPage } from './board-page';
+import { TicketDetailDialog } from './dialogs/ticket-detail.dialog';
 
 describe('BoardPage', () => {
   let store: ReturnType<typeof fakeStore>;
@@ -241,6 +242,15 @@ describe('BoardPage', () => {
 
       expect(store.createTicket).toHaveBeenCalledWith(30, 'Third', 'Details');
       expect(store.assignTicket).not.toHaveBeenCalled();
+    });
+
+    it('opens the ticket detail dialog, where the comment thread lives', async () => {
+      query(fixture, 'ticket-menu-100')?.click();
+      await fixture.whenStable();
+      clickOverlay('open-ticket-100');
+      await fixture.whenStable();
+
+      expect(openedDialogs).toContain(TicketDetailDialog);
     });
 
     it('creates nothing when the ticket dialog is dismissed', async () => {

@@ -1,0 +1,77 @@
+<h2 mat-dialog-title data-testid="ticket-detail-title">{{ data.ticket.title }}</h2>
+
+<mat-dialog-content data-testid="ticket-detail">
+  @if (data.ticket.description) {
+    <p class="detail__description">{{ data.ticket.description }}</p>
+  }
+
+  <h3 class="detail__heading">Comments</h3>
+
+  @if (loading()) {
+    <mat-progress-bar mode="indeterminate" aria-label="Loading the comments" />
+  }
+
+  @if (error(); as message) {
+    <p class="detail__error" role="alert" data-testid="comment-error">{{ message }}</p>
+  }
+
+  <ol class="detail__thread">
+    @for (comment of comments(); track comment.id) {
+      <li class="comment" [attr.data-testid]="'comment-' + comment.id">
+        <div class="comment__meta">
+          <span class="comment__author" [attr.data-testid]="'comment-author-' + comment.id">
+            {{ comment.authorId }}
+          </span>
+          <time class="comment__time" [attr.datetime]="comment.createdAt">
+            {{ comment.createdAt | date: 'short' }}
+          </time>
+          @if (removable(comment)) {
+            <button
+              matIconButton
+              type="button"
+              class="comment__delete"
+              [attr.data-testid]="'delete-comment-' + comment.id"
+              [attr.aria-label]="'Delete comment by ' + comment.authorId"
+              (click)="remove(comment)"
+            >
+              <mat-icon svgIcon="delete" />
+            </button>
+          }
+        </div>
+        <p class="comment__body" [attr.data-testid]="'comment-body-' + comment.id">
+          {{ comment.body }}
+        </p>
+      </li>
+    } @empty {
+      @if (!loading()) {
+        <li class="detail__empty" data-testid="comments-empty">No comments yet.</li>
+      }
+    }
+  </ol>
+
+  <mat-form-field class="detail__field">
+    <mat-label>Add a comment</mat-label>
+    <textarea
+      matInput
+      id="comment-body"
+      rows="3"
+      aria-label="Add a comment"
+      data-testid="comment-input"
+      [formControl]="body"
+      [attr.maxlength]="maxLength"
+    ></textarea>
+  </mat-form-field>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button matButton type="button" data-testid="ticket-detail-close" (click)="close()">Close</button>
+  <button
+    matButton="filled"
+    type="button"
+    data-testid="comment-submit"
+    [disabled]="!canPost()"
+    (click)="post()"
+  >
+    Comment
+  </button>
+</mat-dialog-actions>

@@ -23,19 +23,24 @@ import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.unibl.etf.pisio.boardservice.domain.Board;
+import org.unibl.etf.pisio.boardservice.domain.Comment;
 import org.unibl.etf.pisio.boardservice.domain.Swimlane;
 import org.unibl.etf.pisio.boardservice.domain.Ticket;
 import org.unibl.etf.pisio.boardservice.domain.event.TicketAssigned;
+import org.unibl.etf.pisio.boardservice.domain.event.TicketCommented;
 import org.unibl.etf.pisio.boardservice.domain.event.TicketCreated;
 import org.unibl.etf.pisio.boardservice.domain.event.TicketDeleted;
 import org.unibl.etf.pisio.boardservice.domain.event.TicketMoved;
 import org.unibl.etf.pisio.boardservice.exception.BoardNotFoundException;
+import org.unibl.etf.pisio.boardservice.exception.CommentNotFoundException;
+import org.unibl.etf.pisio.boardservice.exception.CommentNotYoursException;
 import org.unibl.etf.pisio.boardservice.exception.IncompleteSwimlaneOrderException;
 import org.unibl.etf.pisio.boardservice.exception.SwimlaneNotEmptyException;
 import org.unibl.etf.pisio.boardservice.exception.SwimlaneNotOnBoardException;
 import org.unibl.etf.pisio.boardservice.exception.TicketNotFoundException;
 import org.unibl.etf.pisio.boardservice.outbox.DomainEventPublisher;
 import org.unibl.etf.pisio.boardservice.repository.BoardRepository;
+import org.unibl.etf.pisio.boardservice.repository.CommentRepository;
 import org.unibl.etf.pisio.boardservice.repository.TicketRepository;
 
 @ExtendWith(MockitoExtension.class)
@@ -46,6 +51,9 @@ class BoardServiceTest {
 
     @Mock
     private TicketRepository ticketRepository;
+
+    @Mock
+    private CommentRepository commentRepository;
 
     @Mock
     private DomainEventPublisher publisher;
@@ -703,5 +711,170 @@ class BoardServiceTest {
         assertThrows(BoardNotFoundException.class, () -> boardService.getBoardTickets(1L));
 
         verify(ticketRepository, never()).findByBoardIdOrderBySwimlaneIdAscPositionAsc(any());
+    }
+
+    @Test
+    @DisplayName(
+            """
+            Given an existing ticket and a body, \
+            when postComment is called, \
+            then the comment is persisted, attributed to the actor, and a TicketCommented event is published\
+            """)
+    void postComment() {
+        Instant fixedNow = Instant.parse("2026-08-28T09:15:00Z");
+        Ticket ticket = new Ticket(100L, 1L, 10L, "Wire up the pipeline", null, null, 0, null);
+        Comment saved = new Comment(500L, 100L, "demo", "Blocked on the gateway route", fixedNow);
+        when(ticketRepository.findById(100L)).thenReturn(Optional.of(ticket));
+        when(commentRepository.save(any(Comment.class))).thenReturn(saved);
+
+        Comment result;
+        try (MockedStatic<Instant> instant = mockStatic(Instant.class, CALLS_REAL_METHODS)) {
+            instant.when(Instant::now).thenReturn(fixedNow);
+            result = boardService.postComment(100L, "Blocked on the gateway route", "demo");
+        }
+
+        assertThat(result).isEqualTo(saved);
+        verify(commentRepository).save(new Comment(null, 100L, "demo", "Blocked on the gateway route", fixedNow));
+        verify(publisher).publish(
+                new TicketCommented(100L, 1L, 500L, "Wire up the pipeline", null, "demo", fixedNow));
+    }
+
+    @Test
+    @DisplayName(
+            """
+            Given a comment on an assigned ticket, \
+            when postComment is called, \
+            then the published event carries the assignee so the notification context can address it\
+            """)
+    void postCommentOnAnAssignedTicketNamesTheAssignee() {
+        Instant fixedNow = Instant.parse("2026-08-28T09:15:00Z");
+        Ticket ticket = new Ticket(100L, 1L, 10L, "Wire up the pipeline", null, "user", 0, null);
+        when(ticketRepository.findById(100L)).thenReturn(Optional.of(ticket));
+        when(commentRepository.save(any(Comment.class)))
+                .thenReturn(new Comment(500L, 100L, "demo", "Looks done to me", fixedNow));
+
+        try (MockedStatic<Instant> instant = mockStatic(Instant.class, CALLS_REAL_METHODS)) {
+            instant.when(Instant::now).thenReturn(fixedNow);
+            boardService.postComment(100L, "Looks done to me", "demo");
+        }
+
+        verify(publisher).publish(
+                new TicketCommented(100L, 1L, 500L, "Wire up the pipeline", "user", "demo", fixedNow));
+    }
+
+    @Test
+    @DisplayName(
+            """
+            Given a missing ticket, \
+            when postComment is called, \
+            then TicketNotFoundException is thrown and nothing is persisted\
+            """)
+    void postCommentMissingTicket() {
+        when(ticketRepository.findById(404L)).thenReturn(Optional.empty());
+
+        assertThrows(TicketNotFoundException.class, () -> boardService.postComment(404L, "Hello", "demo"));
+
+        verifyNoInteractions(commentRepository);
+        verifyNoInteractions(publisher);
+    }
+
+    @Test
+    @DisplayName("Given an existing ticket, when getComments is called, then its thread is returned oldest first")
+    void getComments() {
+        Ticket ticket = new Ticket(100L, 1L, 10L, "Wire up the pipeline", null, null, 0, null);
+        List<Comment> thread = List.of(
+                new Comment(500L, 100L, "demo", "First", Instant.parse("2026-08-28T09:00:00Z")),
+                new Comment(501L, 100L, "admin", "Second", Instant.parse("2026-08-28T09:05:00Z")));
+        when(ticketRepository.findById(100L)).thenReturn(Optional.of(ticket));
+        when(commentRepository.findByTicketIdOrderByCreatedAtAscIdAsc(100L)).thenReturn(thread);
+
+        assertThat(boardService.getComments(100L)).isEqualTo(thread);
+    }
+
+    @Test
+    @DisplayName("Given a missing ticket, when getComments is called, then TicketNotFoundException is thrown")
+    void getCommentsMissingTicket() {
+        when(ticketRepository.findById(404L)).thenReturn(Optional.empty());
+
+        assertThrows(TicketNotFoundException.class, () -> boardService.getComments(404L));
+
+        verifyNoInteractions(commentRepository);
+    }
+
+    @Test
+    @DisplayName("Given a comment, when its author deletes it, then the comment is removed")
+    void deleteCommentAsAuthor() {
+        Comment comment = new Comment(500L, 100L, "demo", "Mine to delete", Instant.now());
+        when(commentRepository.findById(500L)).thenReturn(Optional.of(comment));
+
+        boardService.deleteComment(100L, 500L, "demo", false);
+
+        verify(commentRepository).delete(comment);
+    }
+
+    @Test
+    @DisplayName("Given somebody else's comment, when an admin deletes it, then the comment is removed")
+    void deleteCommentAsAdmin() {
+        Comment comment = new Comment(500L, 100L, "demo", "Not the admin's", Instant.now());
+        when(commentRepository.findById(500L)).thenReturn(Optional.of(comment));
+
+        boardService.deleteComment(100L, 500L, "admin", true);
+
+        verify(commentRepository).delete(comment);
+    }
+
+    @Test
+    @DisplayName(
+            """
+            Given somebody else's comment, \
+            when a plain user deletes it, \
+            then CommentNotYoursException is thrown and nothing is removed\
+            """)
+    void deleteCommentAsSomebodyElse() {
+        Comment comment = new Comment(500L, 100L, "demo", "Not yours", Instant.now());
+        when(commentRepository.findById(500L)).thenReturn(Optional.of(comment));
+
+        assertThrows(CommentNotYoursException.class, () -> boardService.deleteComment(100L, 500L, "user", false));
+
+        verify(commentRepository, never()).delete(any());
+    }
+
+    @Test
+    @DisplayName("Given a missing comment, when deleteComment is called, then CommentNotFoundException is thrown")
+    void deleteCommentMissingComment() {
+        when(commentRepository.findById(404L)).thenReturn(Optional.empty());
+
+        assertThrows(CommentNotFoundException.class, () -> boardService.deleteComment(100L, 404L, "demo", true));
+
+        verify(commentRepository, never()).delete(any());
+    }
+
+    @Test
+    @DisplayName(
+            """
+            Given a comment that belongs to another ticket, \
+            when deleteComment is called through this ticket, \
+            then CommentNotFoundException is thrown and nothing is removed\
+            """)
+    void deleteCommentFromAnotherTicket() {
+        Comment comment = new Comment(500L, 999L, "demo", "Elsewhere", Instant.now());
+        when(commentRepository.findById(500L)).thenReturn(Optional.of(comment));
+
+        assertThrows(CommentNotFoundException.class, () -> boardService.deleteComment(100L, 500L, "demo", true));
+
+        verify(commentRepository, never()).delete(any());
+    }
+
+    @Test
+    @DisplayName("Given a ticket that has comments, when deleteTicket is called, then its comments go with it")
+    void deleteTicketDeletesItsComments() {
+        Board board = new Board(1L, "Board", List.of(new Swimlane(10L, "To Do")));
+        Ticket ticket = new Ticket(100L, 1L, 10L, "Doomed", null, null, 0, null);
+        when(ticketRepository.findById(100L)).thenReturn(Optional.of(ticket));
+        when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
+
+        boardService.deleteTicket(100L, "admin");
+
+        verify(commentRepository).deleteByTicketId(100L);
     }
 }

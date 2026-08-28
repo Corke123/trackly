@@ -8,6 +8,14 @@ interface TicketState {
   swimlaneId: number;
 }
 
+interface CommentState {
+  id: number;
+  ticketId: number;
+  authorId: string;
+  body: string;
+  createdAt: string;
+}
+
 interface SwimlaneState {
   id: number;
   title: string;
@@ -46,7 +54,13 @@ export class FakeBoard {
     },
   ];
 
+  comments: CommentState[] = [];
+
   constructor(readonly admin: boolean) {}
+
+  get actor(): string {
+    return this.admin ? 'admin' : 'demo';
+  }
 
   view() {
     return {
@@ -119,6 +133,43 @@ export class FakeBoard {
     const held = this.tickets.some((candidate) => candidate.id === ticketId);
     this.tickets = this.tickets.filter((candidate) => candidate.id !== ticketId);
     return held;
+  }
+
+  commentsOn(ticketId: number): CommentState[] {
+    return this.comments.filter((comment) => comment.ticketId === ticketId);
+  }
+
+  postComment(ticketId: number, authorId: string, body: string): CommentState | null {
+    if (!this.tickets.some((ticket) => ticket.id === ticketId)) {
+      return null;
+    }
+    const comment = {
+      id: this.nextId++,
+      ticketId,
+      authorId,
+      body,
+      createdAt: new Date().toISOString(),
+    };
+    this.comments.push(comment);
+    return comment;
+  }
+
+  deleteComment(
+    ticketId: number,
+    commentId: number,
+    actorId: string,
+  ): 'deleted' | 'forbidden' | 'missing' {
+    const comment = this.comments.find(
+      (candidate) => candidate.id === commentId && candidate.ticketId === ticketId,
+    );
+    if (!comment) {
+      return 'missing';
+    }
+    if (!this.admin && comment.authorId !== actorId) {
+      return 'forbidden';
+    }
+    this.comments = this.comments.filter((candidate) => candidate.id !== commentId);
+    return 'deleted';
   }
 
   /** Where the tickets in a swimlane sit, in order — what a drag is judged by. */
@@ -280,6 +331,37 @@ export async function installBoardApi(
         return json(route, { status: 404, detail: `Ticket ${ticketId} not found` }, 404);
       }
       return json(route, { ...updated, position: body.position ?? 0 });
+    }
+
+    const threadMatch = /^\/api\/tickets\/(\d+)\/comments$/.exec(path);
+    if (threadMatch && method === 'GET') {
+      return json(route, board.commentsOn(Number(threadMatch[1])));
+    }
+
+    if (threadMatch && method === 'POST') {
+      const ticketId = Number(threadMatch[1]);
+      const comment = board.postComment(ticketId, board.actor, body.body);
+      if (!comment) {
+        return json(route, { status: 404, detail: `Ticket ${ticketId} not found` }, 404);
+      }
+      return json(route, comment, 201);
+    }
+
+    const commentMatch = /^\/api\/tickets\/(\d+)\/comments\/(\d+)$/.exec(path);
+    if (commentMatch && method === 'DELETE') {
+      const commentId = Number(commentMatch[2]);
+      const outcome = board.deleteComment(Number(commentMatch[1]), commentId, board.actor);
+      if (outcome === 'missing') {
+        return json(route, { status: 404, detail: `Comment ${commentId} not found` }, 404);
+      }
+      if (outcome === 'forbidden') {
+        return json(
+          route,
+          { status: 403, detail: `Comment ${commentId} was written by somebody else` },
+          403,
+        );
+      }
+      return route.fulfill({ status: 204, body: '' });
     }
 
     return json(route, { status: 404, detail: `No stub for ${method} ${path}` }, 404);
