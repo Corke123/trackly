@@ -25,6 +25,12 @@ The user responsible for a ticket. Referenced by user id only — the board cont
 not own user data.
 _Avoid_: owner, member.
 
+**Comment**:
+A remark a user leaves on a Ticket. A ticket's comments form a thread, oldest first. A Comment
+records who wrote it and when, and is never edited — a correction is another Comment. Its author,
+or an Admin, may delete one.
+_Avoid_: note, message, reply, post.
+
 ## Notification (notification-service)
 
 **Activity**:
