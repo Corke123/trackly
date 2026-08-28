@@ -38,6 +38,16 @@
   <button
     mat-menu-item
     type="button"
+    [attr.data-testid]="'open-ticket-' + ticket().id"
+    (click)="open.emit(ticket())"
+  >
+    <mat-icon svgIcon="comment" />
+    <span>Comments…</span>
+  </button>
+
+  <button
+    mat-menu-item
+    type="button"
     [attr.data-testid]="'assign-ticket-' + ticket().id"
     (click)="assign.emit(ticket())"
   >

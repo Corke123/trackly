@@ -25,6 +25,8 @@ export class TicketCard {
 
   readonly isAdmin = input<boolean>(false);
 
+  readonly open = output<Ticket>();
+
   readonly assign = output<Ticket>();
 
   readonly delete = output<Ticket>();

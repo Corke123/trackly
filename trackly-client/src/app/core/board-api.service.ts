@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_BASE_URL } from './api.config';
-import { Board, BoardSummary, Swimlane, Ticket, User } from './board.models';
+import { Board, BoardSummary, Comment, Swimlane, Ticket, User } from './board.models';
 
 /**
  * The board-service and identity-service endpoints, reached through the gateway. Nothing here holds
@@ -62,6 +62,18 @@ export class BoardApiService {
 
   deleteTicket(ticketId: number): Observable<void> {
     return this.http.delete<void>(`${this.baseUrl}/tickets/${ticketId}`);
+  }
+
+  listComments(ticketId: number): Observable<Comment[]> {
+    return this.http.get<Comment[]>(`${this.baseUrl}/tickets/${ticketId}/comments`);
+  }
+
+  postComment(ticketId: number, body: string): Observable<Comment> {
+    return this.http.post<Comment>(`${this.baseUrl}/tickets/${ticketId}/comments`, { body });
+  }
+
+  deleteComment(ticketId: number, commentId: number): Observable<void> {
+    return this.http.delete<void>(`${this.baseUrl}/tickets/${ticketId}/comments/${commentId}`);
   }
 
   listUsers(): Observable<User[]> {

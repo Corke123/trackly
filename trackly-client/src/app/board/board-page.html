@@ -30,6 +30,7 @@
           [canMoveLeft]="index > 0"
           [canMoveRight]="index < lastIndex()"
           (addTicket)="addTicket($event)"
+          (openTicket)="openTicket($event)"
           (assignTicket)="assignTicket($event)"
           (deleteTicket)="deleteTicket($event)"
           (moveTicket)="onTicketMoved($event)"

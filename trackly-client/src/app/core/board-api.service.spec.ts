@@ -95,6 +95,26 @@ describe('BoardApiService', () => {
     request.flush({});
   });
 
+  it("reads a ticket's thread from the route nested under the ticket", () => {
+    api.listComments(100).subscribe();
+
+    http.expectOne({ method: 'GET', url: '/api/tickets/100/comments' }).flush([]);
+  });
+
+  it('posts a comment with the body board-service expects', () => {
+    api.postComment(100, 'Blocked on the gateway route').subscribe();
+
+    const request = http.expectOne({ method: 'POST', url: '/api/tickets/100/comments' });
+    expect(request.request.body).toEqual({ body: 'Blocked on the gateway route' });
+    request.flush({});
+  });
+
+  it('deletes a comment through its ticket, never through a flat comment route', () => {
+    api.deleteComment(100, 500).subscribe();
+
+    http.expectOne({ method: 'DELETE', url: '/api/tickets/100/comments/500' }).flush(null);
+  });
+
   it('lists the users identity-service knows about', () => {
     api.listUsers().subscribe();
 
