@@ -53,7 +53,9 @@
     <mat-label>Add a comment</mat-label>
     <textarea
       matInput
+      id="comment-body"
       rows="3"
+      aria-label="Add a comment"
       data-testid="comment-input"
       [formControl]="body"
       [attr.maxlength]="maxLength"

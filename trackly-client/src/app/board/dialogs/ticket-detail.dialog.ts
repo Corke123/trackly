@@ -1,5 +1,13 @@
 import { DatePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  OnInit,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -40,13 +48,14 @@ export interface TicketDetailData {
   templateUrl: './ticket-detail.dialog.html',
   styleUrl: './ticket-detail.dialog.css',
 })
-export class TicketDetailDialog {
+export class TicketDetailDialog implements OnInit {
   protected readonly data = inject<TicketDetailData>(MAT_DIALOG_DATA);
 
   private readonly dialogRef = inject<MatDialogRef<TicketDetailDialog, void>>(MatDialogRef);
   private readonly api = inject(BoardApiService);
   private readonly auth = inject(AuthService);
   private readonly stream = inject(ActivityStreamService);
+  private readonly destroyRef = inject(DestroyRef);
 
   private readonly thread = signal<readonly Comment[]>([]);
   private readonly loadingState = signal<boolean>(true);
@@ -67,7 +76,7 @@ export class TicketDetailDialog {
 
   protected readonly canPost = computed(() => !this.posting());
 
-  constructor() {
+  ngOnInit(): void {
     void this.load();
 
     this.stream.boardChanges
@@ -76,7 +85,7 @@ export class TicketDetailDialog {
           (change) => change.type === TICKET_COMMENTED && change.actorId !== this.auth.username(),
         ),
         auditTime(REFRESH_WINDOW),
-        takeUntilDestroyed(),
+        takeUntilDestroyed(this.destroyRef),
       )
       .subscribe(() => void this.load(false));
   }
