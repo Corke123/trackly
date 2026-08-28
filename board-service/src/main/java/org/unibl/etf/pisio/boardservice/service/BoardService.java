@@ -9,6 +9,7 @@ import java.util.stream.IntStream;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.unibl.etf.pisio.boardservice.domain.Board;
+import org.unibl.etf.pisio.boardservice.domain.Comment;
 import org.unibl.etf.pisio.boardservice.domain.Swimlane;
 import org.unibl.etf.pisio.boardservice.domain.Ticket;
 import org.unibl.etf.pisio.boardservice.domain.event.TicketAssigned;
@@ -16,11 +17,14 @@ import org.unibl.etf.pisio.boardservice.domain.event.TicketCreated;
 import org.unibl.etf.pisio.boardservice.domain.event.TicketDeleted;
 import org.unibl.etf.pisio.boardservice.domain.event.TicketMoved;
 import org.unibl.etf.pisio.boardservice.exception.BoardNotFoundException;
+import org.unibl.etf.pisio.boardservice.exception.CommentNotFoundException;
+import org.unibl.etf.pisio.boardservice.exception.CommentNotYoursException;
 import org.unibl.etf.pisio.boardservice.exception.SwimlaneNotEmptyException;
 import org.unibl.etf.pisio.boardservice.exception.SwimlaneNotOnBoardException;
 import org.unibl.etf.pisio.boardservice.exception.TicketNotFoundException;
 import org.unibl.etf.pisio.boardservice.outbox.DomainEventPublisher;
 import org.unibl.etf.pisio.boardservice.repository.BoardRepository;
+import org.unibl.etf.pisio.boardservice.repository.CommentRepository;
 import org.unibl.etf.pisio.boardservice.repository.TicketRepository;
 
 @Service
@@ -29,12 +33,14 @@ public class BoardService {
 
     private final BoardRepository boardRepository;
     private final TicketRepository ticketRepository;
+    private final CommentRepository commentRepository;
     private final DomainEventPublisher publisher;
 
     public BoardService(BoardRepository boardRepository, TicketRepository ticketRepository,
-                        DomainEventPublisher publisher) {
+                        CommentRepository commentRepository, DomainEventPublisher publisher) {
         this.boardRepository = boardRepository;
         this.ticketRepository = ticketRepository;
+        this.commentRepository = commentRepository;
         this.publisher = publisher;
     }
 
@@ -167,8 +173,9 @@ public class BoardService {
 
     public void deleteTicket(Long ticketId, String actorId) {
         Ticket ticket = requireTicket(ticketId);
-        Board board = requireBoard(ticket.boardId());
+        commentRepository.deleteByTicketId(ticketId);
 
+        Board board = requireBoard(ticket.boardId());
         ticketRepository.delete(ticket);
 
         List<Ticket> remaining = ticketRepository.findBySwimlaneIdOrderByPositionAsc(ticket.swimlaneId()).stream()
@@ -179,6 +186,27 @@ public class BoardService {
         publisher.publish(new TicketDeleted(ticketId, ticket.boardId(), ticket.swimlaneId(),
                 ticket.title(), board.swimlaneTitle(ticket.swimlaneId()), ticket.assigneeId(),
                 actorId, Instant.now()));
+    }
+
+    public Comment postComment(Long ticketId, String body, String authorId) {
+        requireTicket(ticketId);
+        return commentRepository.save(new Comment(ticketId, authorId, body));
+    }
+
+    public void deleteComment(Long ticketId, Long commentId, String actorId, boolean actorIsAdmin) {
+        Comment comment = requireComment(ticketId, commentId);
+
+        if (!actorIsAdmin && !comment.isWrittenBy(actorId)) {
+            throw new CommentNotYoursException(commentId);
+        }
+
+        commentRepository.delete(comment);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Comment> getComments(Long ticketId) {
+        requireTicket(ticketId);
+        return commentRepository.findByTicketIdOrderByCreatedAtAscIdAsc(ticketId);
     }
 
     @Transactional(readOnly = true)
@@ -204,6 +232,18 @@ public class BoardService {
 
     private Board requireBoard(Long boardId) {
         return boardRepository.findById(boardId).orElseThrow(() -> new BoardNotFoundException(boardId));
+    }
+
+    private Comment requireComment(Long ticketId, Long commentId) {
+        Comment comment = commentRepository
+                .findById(commentId)
+                .orElseThrow(() -> new CommentNotFoundException(commentId));
+
+        if (!comment.ticketId().equals(ticketId)) {
+            throw new CommentNotFoundException(commentId);
+        }
+
+        return comment;
     }
 
     private Ticket requireTicket(Long ticketId) {

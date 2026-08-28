@@ -4,6 +4,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
+import jakarta.validation.constraints.Size;
 import java.util.List;
 
 public final class Requests {
@@ -33,6 +34,10 @@ public final class Requests {
     }
 
     public record UpdateTicket(Long swimlaneId, @PositiveOrZero Integer position, String assigneeId) {
+
+    }
+
+    public record PostComment(@NotBlank @Size(max = 2000) String body) {
 
     }
 }

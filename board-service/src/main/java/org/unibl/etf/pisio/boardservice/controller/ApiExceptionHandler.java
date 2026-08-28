@@ -5,6 +5,8 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.unibl.etf.pisio.boardservice.exception.BoardNotFoundException;
+import org.unibl.etf.pisio.boardservice.exception.CommentNotFoundException;
+import org.unibl.etf.pisio.boardservice.exception.CommentNotYoursException;
 import org.unibl.etf.pisio.boardservice.exception.IncompleteSwimlaneOrderException;
 import org.unibl.etf.pisio.boardservice.exception.SwimlaneNotEmptyException;
 import org.unibl.etf.pisio.boardservice.exception.SwimlaneNotOnBoardException;
@@ -21,6 +23,16 @@ public class ApiExceptionHandler {
     @ExceptionHandler(TicketNotFoundException.class)
     public ProblemDetail handleTicketNotFound(TicketNotFoundException e) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, e.getMessage());
+    }
+
+    @ExceptionHandler(CommentNotFoundException.class)
+    public ProblemDetail handleCommentNotFound(CommentNotFoundException e) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, e.getMessage());
+    }
+
+    @ExceptionHandler(CommentNotYoursException.class)
+    public ProblemDetail handleCommentNotYours(CommentNotYoursException e) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, e.getMessage());
     }
 
     @ExceptionHandler(SwimlaneNotOnBoardException.class)

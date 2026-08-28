@@ -8,6 +8,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.unibl.etf.pisio.boardservice.exception.BoardNotFoundException;
+import org.unibl.etf.pisio.boardservice.exception.CommentNotFoundException;
+import org.unibl.etf.pisio.boardservice.exception.CommentNotYoursException;
 import org.unibl.etf.pisio.boardservice.exception.IncompleteSwimlaneOrderException;
 import org.unibl.etf.pisio.boardservice.exception.SwimlaneNotEmptyException;
 import org.unibl.etf.pisio.boardservice.exception.SwimlaneNotOnBoardException;
@@ -96,5 +98,37 @@ class ApiExceptionHandlerTest {
 
         assertThat(result.getStatus()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT.value());
         assertThat(result.getDetail()).contains("must list every swimlane exactly once");
+    }
+
+    @Test
+    @DisplayName(
+            """
+            Given a CommentNotFoundException, \
+            when handleCommentNotFound is called, \
+            then a 404 problem detail is returned\
+            """)
+    void handleCommentNotFound() {
+        CommentNotFoundException exception = new CommentNotFoundException(500L);
+
+        ProblemDetail result = handler.handleCommentNotFound(exception);
+
+        assertThat(result.getStatus()).isEqualTo(HttpStatus.NOT_FOUND.value());
+        assertThat(result.getDetail()).isEqualTo("Comment 500 not found");
+    }
+
+    @Test
+    @DisplayName(
+            """
+            Given a CommentNotYoursException, \
+            when handleCommentNotYours is called, \
+            then a 403 problem detail is returned\
+            """)
+    void handleCommentNotYours() {
+        CommentNotYoursException exception = new CommentNotYoursException(500L);
+
+        ProblemDetail result = handler.handleCommentNotYours(exception);
+
+        assertThat(result.getStatus()).isEqualTo(HttpStatus.FORBIDDEN.value());
+        assertThat(result.getDetail()).isEqualTo("Comment 500 was written by somebody else");
     }
 }
